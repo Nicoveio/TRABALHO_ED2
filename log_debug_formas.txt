@@ -1,0 +1,4 @@
+SVG gerado com sucesso: /home/nicolas-oliveira/Documentos/EVANDRO_ED2/ted/01-band-suecia.svg
+Dimensões: 454x302 pixels
+Formas processadas: 1194
+✓ Arquivo SVG base gerado com sucesso!

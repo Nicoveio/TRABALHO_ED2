@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <math.h>
 #include "qry.h"
 #include "utils.h"
 #include "formas.h"
@@ -64,7 +65,7 @@ static void processa_disp(ContextoConsulta* contexto, int id, int n);
 static void processa_transp(ContextoConsulta* contexto, int id, double x, double y);
 static void processa_cln(ContextoConsulta* contexto, int n, double dx, double dy);
 static void processa_spy(ContextoConsulta* contexto, int id);
-static void processa_cmflg(ContextoConsulta* contexto, int id, const char* corb, const char* corp, const char* w);
+static void processa_cmflg(ContextoConsulta* contexto, int id, const char* corb, const char* corp, double w);
 static void processa_blow(ContextoConsulta* contexto, int id);
 
 
@@ -153,8 +154,9 @@ InformacoesAdicionais processaQry(void *parametros, SmuTreap arvore) {
 
         } else if (strcmp(comando, "cmflg") == 0) {
             int id;
-            char corb[64], corp[64], w[16];
-            sscanf(ptr, "%*s %d %63s %63s %15s", &id, corb, corp, w);
+            double w;
+            char corb[64], corp[64];
+            sscanf(ptr, "%*s %d %63s %63s %lf", &id, corb, corp, &w);
             processa_cmflg(&contexto, id, corb, corp, w);
 
         } else if (strcmp(comando, "blow") == 0) {
@@ -195,6 +197,17 @@ static bool inicializa_infosAdicionais(InformacoesAdicionaisImp* infos) {
 }
 static void zera_selecionados(Lista* array_listas) {
     memset(array_listas, 0, sizeof(Lista) * 100);
+}
+static bool procuraNoPorId_callback(SmuTreap t, Node n, Info i, double x, double y, void *aux) {
+    // Converte o ponteiro genérico 'aux' para o nosso tipo de busca.
+    AuxBuscaId* busca = (AuxBuscaId*) aux;
+    
+    // Compara o ID da forma atual com o ID que estamos procurando.
+    if (formaGetId(i) == busca->id_procurado) {
+        return true; // Encontrou!
+    }
+    
+    return false; // Não é este, continue procurando.
 }
 
 
@@ -312,22 +325,127 @@ static void processa_seli(ContextoConsulta* contexto, int n, double x, double y)
     }
 }
 
+// Em qry.c
 static void processa_disp(ContextoConsulta* contexto, int id, int n) {
     fprintf(contexto->arquivoTxt, "disp %d %d\n", id, n);
-    fprintf(contexto->arquivoTxt, "  -> Função 'processa_disp' chamada. Lógica a ser implementada.\n\n");
+
+    // --- FASE 1: PREPARAÇÃO (ENCONTRAR DIREÇÃO E OGIVAS) ---
+
+    // 1a. Encontrar a linha que dá a direção
+    AuxBuscaId busca_linha = { .id_procurado = id };
+    Node no_linha = procuraNoSmuT(contexto->arvore, &procuraNoPorId_callback, &busca_linha);
+
+    if (!no_linha || formaGetTipo(getInfoSmuT(contexto->arvore, no_linha)) != LINHA) {
+        fprintf(contexto->arquivoTxt, "  > AVISO: Linha de direção com ID=%d não encontrada ou a forma não é uma linha.\n\n", id);
+        return;
+    }
+
+    // 1b. Calcular o vetor de direção normalizado (comprimento 1)
+    double lx1, ly1, lx2, ly2;
+    linhaGetPontos(getInfoSmuT(contexto->arvore, no_linha), &lx1, &ly1, &lx2, &ly2);
+    double vx = lx2 - lx1;
+    double vy = ly2 - ly1;
+    double mag = sqrt(vx*vx + vy*vy);
+    if (mag > 0) {
+        vx /= mag;
+        vy /= mag;
+    }
+
+    // 1c. Obter a lista de "ogivas" (projéteis)
+    if (n < 0 || n >= 100 || contexto->selecionados[n] == NULL) {
+        fprintf(contexto->arquivoTxt, "  > AVISO: Grupo de seleção %d está vazio ou é inválido.\n\n", n);
+        return;
+    }
+    Lista ogivas = contexto->selecionados[n];
+    
+    // --- FASE 2: LOOP DE DISPARO E COLETA DE DADOS ---
+    
+    InformacoesAdicionaisImp* infos_svg = (InformacoesAdicionaisImp*)contexto->infosSvg;
+    Lista nos_a_remover = lista_cria(); // Coleta todos os nós para remoção segura no final
+
+    Iterador it_ogivas = lista_iterador(ogivas);
+    while (iterador_tem_proximo(it_ogivas)) {
+        Node no_ogiva = iterador_proximo(it_ogivas);
+        Info info_ogiva = getInfoSmuT(contexto->arvore, no_ogiva);
+        
+        // 2a. Calcular trajetória
+        double distancia = formaGetArea(info_ogiva);
+        double x_inicial, y_inicial;
+        GetXY(&x_inicial, &y_inicial, info_ogiva);
+        double x_final = x_inicial + vx * distancia;
+        double y_final = y_inicial + vy * distancia;
+
+        fprintf(contexto->arquivoTxt, "\n  > Disparando ogiva ID=%d (Tipo=%d):\n", formaGetId(info_ogiva), formaGetTipo(info_ogiva));
+        fprintf(contexto->arquivoTxt, "    - Posição Inicial: (%.2f, %.2f)\n", x_inicial, y_inicial);
+        fprintf(contexto->arquivoTxt, "    - Distância (Área): %.2f\n", distancia);
+        fprintf(contexto->arquivoTxt, "    - Posição Final (Explosão): (%.2f, %.2f)\n", x_final, y_final);
+
+        // 2b. Preparar efeitos visuais do SVG
+        VetorMovimento* vm = malloc(sizeof(VetorMovimento));
+        vm->origem.x = x_inicial;   vm->origem.y = y_inicial;
+        vm->destino.x = x_final;    vm->destino.y = y_final;
+        lista_insere(infos_svg->vetores_movimento, vm); // Vetor da trajetória
+
+        Coord* ponto_explosao = malloc(sizeof(Coord));
+        ponto_explosao->x = x_final; ponto_explosao->y = y_final;
+        lista_insere(infos_svg->pontos_hashtag_vermelhos, ponto_explosao); // '#' da explosão
+
+        // 2c. Encontrar vítimas no ponto de explosão
+        Lista alvos_atingidos = lista_cria();
+        getInfosAtingidoPontoSmuT(contexto->arvore, x_final, y_final, &formaPontoInternoAInfo, alvos_atingidos);
+        
+        // 2d. Adicionar vítimas e a própria ogiva à lista de remoção
+        fprintf(contexto->arquivoTxt, "    - Vítimas da explosão:\n");
+        int vitimas_contador = 0;
+        Iterador it_vitimas = lista_iterador(alvos_atingidos);
+        while (iterador_tem_proximo(it_vitimas)) {
+            Node no_vitima = iterador_proximo(it_vitimas);
+            Info info_vitima = getInfoSmuT(contexto->arvore, no_vitima);
+            fprintf(contexto->arquivoTxt, "      - ");
+            formaFprintfResumo(contexto->arquivoTxt, info_vitima);
+            fprintf(contexto->arquivoTxt, "\n");
+            
+            double ax_v, ay_v;
+            GetXY(&ax_v, &ay_v, info_vitima);
+            Coord* ponto_x = malloc(sizeof(Coord));
+            ponto_x->x = ax_v; ponto_x->y = ay_v;
+            lista_insere(infos_svg->pontos_x_vermelhos, ponto_x); // 'x' da destruição
+
+            lista_insere(nos_a_remover, no_vitima);
+            vitimas_contador++;
+        }
+        iterador_destroi(it_vitimas);
+        lista_libera(alvos_atingidos);
+
+        // Adiciona a própria ogiva para ser destruída
+        lista_insere(nos_a_remover, no_ogiva);
+        Coord* ponto_x_ogiva = malloc(sizeof(Coord));
+        ponto_x_ogiva->x = x_inicial; ponto_x_ogiva->y = y_inicial;
+        lista_insere(infos_svg->pontos_x_vermelhos, ponto_x_ogiva);
+        
+        if(vitimas_contador == 0) fprintf(contexto->arquivoTxt, "      (Nenhuma)\n");
+    }
+    iterador_destroi(it_ogivas);
+
+    // --- FASE 3: DESTRUIÇÃO FINAL ---
+    // Remove todos os nós coletados (ogivas e vítimas) de uma só vez
+    // Para evitar duplicatas, podemos usar uma lógica de verificação, mas por simplicidade vamos apenas remover.
+    Iterador it_remover = lista_iterador(nos_a_remover);
+    while(iterador_tem_proximo(it_remover)) {
+        Node no_a_remover = iterador_proximo(it_remover);
+        // A função removeNoSmuT deve ser robusta para o caso do nó já ter sido removido
+        removeNoSmuT(contexto->arvore, no_a_remover);
+    }
+    iterador_destroi(it_remover);
+    lista_libera(nos_a_remover);
+
+    // Limpa a lista de seleção usada, pois as formas não existem mais.
+    lista_libera(contexto->selecionados[n]);
+    contexto->selecionados[n] = NULL;
+    
+    fprintf(contexto->arquivoTxt, "\n");
 }
 
-static bool procuraNoPorId_callback(SmuTreap t, Node n, Info i, double x, double y, void *aux) {
-    // Converte o ponteiro genérico 'aux' para o nosso tipo de busca.
-    AuxBuscaId* busca = (AuxBuscaId*) aux;
-    
-    // Compara o ID da forma atual com o ID que estamos procurando.
-    if (formaGetId(i) == busca->id_procurado) {
-        return true; // Encontrou!
-    }
-    
-    return false; // Não é este, continue procurando.
-}
 
 static void processa_transp(ContextoConsulta* contexto, int id, double x_novo, double y_novo) {
     fprintf(contexto->arquivoTxt, "transp %d %.1f %.1f\n", id, x_novo, y_novo);
@@ -631,8 +749,8 @@ static void processa_spy(ContextoConsulta* contexto, int id) {
 }*/
 
 // Em qry.c
-static void processa_cmflg(ContextoConsulta* contexto, int id, const char* corb, const char* corp, const char* w) {
-    fprintf(contexto->arquivoTxt, "cmflg %d %s %s %s\n", id, corb, corp, w);
+static void processa_cmflg(ContextoConsulta* contexto, int id, const char* corb, const char* corp, const double w) {
+    fprintf(contexto->arquivoTxt, "cmflg %d %s %s %lf\n", id, corb, corp, w);
 
     // --- PASSO 1: ENCONTRAR A FORMA "ESPIÃ" ---
     AuxBuscaId busca = { .id_procurado = id };
@@ -677,6 +795,7 @@ static void processa_cmflg(ContextoConsulta* contexto, int id, const char* corb,
         
         // Ação 1: Aplica as novas cores
         formaSetCores(info_alvo, corb, corp);
+        formaSetLarguraBorda(info_alvo, w);
 
         // Ação 2 (Debug Visual): Adiciona a info na lista de destaque do SVG
         lista_insere(infos_svg->formas_destacadas, info_alvo);
@@ -694,7 +813,82 @@ static void processa_cmflg(ContextoConsulta* contexto, int id, const char* corb,
     lista_libera(alvos);
     fprintf(contexto->arquivoTxt, "\n");
 }
+// Em qry.c
 static void processa_blow(ContextoConsulta* contexto, int id) {
     fprintf(contexto->arquivoTxt, "blow %d\n", id);
-    fprintf(contexto->arquivoTxt, "  -> Função 'processa_blow' chamada. Lógica a ser implementada.\n\n");
+
+    // --- PASSO 1: ENCONTRAR A "BOMBA" ---
+    AuxBuscaId busca = { .id_procurado = id };
+    Node no_bomba = procuraNoSmuT(contexto->arvore, &procuraNoPorId_callback, &busca);
+
+    if (!no_bomba) {
+        fprintf(contexto->arquivoTxt, "  > AVISO: Forma 'bomba' com ID=%d não encontrada para explodir.\n\n", id);
+        return;
+    }
+
+    Info info_bomba = getInfoSmuT(contexto->arvore, no_bomba);
+    fprintf(contexto->arquivoTxt, "  > Bomba ID=%d ativada. Atributos da figura removida:\n", id);
+    fprintf(contexto->arquivoTxt, "  >   - ");
+    formaFprintfResumo(contexto->arquivoTxt, info_bomba);
+    fprintf(contexto->arquivoTxt, "\n");
+
+    // --- PASSO 2: ENCONTRAR VÍTIMAS NO PONTO DE EXPLOSÃO ---
+    double explosao_x, explosao_y;
+    GetXY(&explosao_x, &explosao_y, info_bomba);
+
+    Lista alvos_encontrados = lista_cria();
+    getInfosAtingidoPontoSmuT(contexto->arvore, explosao_x, explosao_y, &formaPontoInternoAInfo, alvos_encontrados);
+
+    // --- PASSO 3: REPORTAR, PREPARAR SVG E COLETAR PARA REMOÇÃO ---
+    InformacoesAdicionaisImp* infos_svg = (InformacoesAdicionaisImp*)contexto->infosSvg;
+    Lista nos_a_remover = lista_cria(); // Lista segura para remoção
+
+    // Adiciona o '#' no local da explosão
+    Coord* ponto_explosao = malloc(sizeof(Coord));
+    ponto_explosao->x = explosao_x;
+    ponto_explosao->y = explosao_y;
+    lista_insere(infos_svg->pontos_hashtag_vermelhos, ponto_explosao);
+
+    fprintf(contexto->arquivoTxt, "  > Atributos das figuras atingidas pela explosão:\n");
+    
+    int contador_vitimas = 0;
+    Iterador it = lista_iterador(alvos_encontrados);
+    while (iterador_tem_proximo(it)) {
+        Node no_alvo = iterador_proximo(it);
+        Info info_alvo = getInfoSmuT(contexto->arvore, no_alvo);
+        
+        fprintf(contexto->arquivoTxt, "  >   - ");
+        formaFprintfResumo(contexto->arquivoTxt, info_alvo);
+        fprintf(contexto->arquivoTxt, "\n");
+
+        // Adiciona o 'x' na âncora da forma destruída
+        double ax, ay;
+        GetXY(&ax, &ay, info_alvo);
+        Coord* ponto_x = malloc(sizeof(Coord));
+        ponto_x->x = ax;
+        ponto_x->y = ay;
+        lista_insere(infos_svg->pontos_x_vermelhos, ponto_x);
+
+        // Adiciona o nó à lista de remoção
+        lista_insere(nos_a_remover, no_alvo);
+        contador_vitimas++;
+    }
+    iterador_destroi(it);
+    
+    if (contador_vitimas == 0) {
+        fprintf(contexto->arquivoTxt, "  >   (Nenhuma forma atingida)\n");
+    }
+
+    // --- PASSO 4: EXECUTAR A DESTRUIÇÃO ---
+    // Agora, com segurança, removemos os nós da árvore.
+    it = lista_iterador(nos_a_remover);
+    while (iterador_tem_proximo(it)) {
+        Node no_para_remover = iterador_proximo(it);
+        removeNoSmuT(contexto->arvore, no_para_remover);
+    }
+    iterador_destroi(it);
+
+    lista_libera(alvos_encontrados);
+    lista_libera(nos_a_remover);
+    fprintf(contexto->arquivoTxt, "\n");
 }

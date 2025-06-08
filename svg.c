@@ -51,25 +51,28 @@ typedef struct {
 
 
 typedef struct {
-    int id;             
-    double x, y;        
-    double r;           
-    char corb[64];      
-    char corp[64];      
+    int id;             // identificador numérico
+    double x, y;        // centro
+    double r;           // raio
+    char corb[64];      // cor da borda
+    char corp[64];      // cor de preenchimento
+    double largura_borda;
 } Circle;
 
 typedef struct {
     int id;
-    double x, y;        
-    double w, h;        
+    double x, y;        // âncora (canto superior esquerdo)
+    double w, h;        // largura e altura
     char corb[64];
     char corp[64];
+    double largura_borda;
 } Rect;
 
 typedef struct {
     int id;
-    double x1, y1, x2, y2; 
+    double x1, y1, x2, y2; // coordenadas das extremidades
     char cor[64];
+    double largura_borda;
 } Line;
 
 typedef struct {
@@ -77,11 +80,12 @@ typedef struct {
     double x, y;
     char corb[64];
     char corp[64];
-    char a;              
-    char txto[1024];     
-    char fontFamily[32]; 
-    char fontWeight[8];  
-    int fontSize;        
+    char a;              // âncora: 'i', 'm', ou 'f'
+    char txto[1024];     // conteúdo do texto
+    char fontFamily[32]; // nova: Arial, serif, etc.
+    char fontWeight[8];  // nova: n, b, b+, l
+    int fontSize;        // nova: em px
+    double largura_borda;
 } Text;
 
 typedef struct{
@@ -295,27 +299,38 @@ void desenharInfosAdicionaisSVG(ContextoSVGInterno *ctx) {
 
     // 1. Pontos "x" vermelhos (formas destruídas)
     int contador_ancoras_desenhadas = 0;
+    // ...
+
+    // 1. Pontos "x" vermelhos (formas destruídas) - AGORA CENTRALIZADO
     if (infos->pontos_x_vermelhos) {
         Iterador it = lista_iterador(infos->pontos_x_vermelhos);
         while (iterador_tem_proximo(it)) {
-             
             Coord *p = (Coord*) iterador_proximo(it);
             double y_svg = altura_canvas - p->y;
-            fprintf(arq, "  <text x=\"%.2f\" y=\"%.2f\" font-size=\"12\" fill=\"red\">x</text>\n",
+            
+            // Adicionados text-anchor e dominant-baseline para centralização perfeita.
+            // Aumentei um pouco o tamanho e o peso da fonte para melhor visibilidade.
+            fprintf(arq, "  <text x=\"%.2f\" y=\"%.2f\" font-size=\"14\" font-weight=\"bold\" fill=\"firebrick\" text-anchor=\"middle\" fill-opacity=\"1.0\" dominant-baseline=\"central\">x</text>\n",
                     p->x, y_svg);
         }
+        iterador_destroi(it); // Lembre-se de destruir o iterador
     }
 
-    // 2. Pontos "#" vermelhos (local da explosão)
+    // 2. Pontos "#" vermelhos (local da explosão) - AGORA CENTRALIZADO
     if (infos->pontos_hashtag_vermelhos) {
         Iterador it = lista_iterador(infos->pontos_hashtag_vermelhos);
         while (iterador_tem_proximo(it)) {
             Coord *p = (Coord*) iterador_proximo(it);
             double y_svg = altura_canvas - p->y;
-            fprintf(arq, "  <text x=\"%.2f\" y=\"%.2f\" font-size=\"12\" fill=\"red\">#</text>\n",
+
+            // Centralizado e com estilo diferente (maior e azul escuro) para diferenciar da destruição.
+            fprintf(arq, "  <text x=\"%.2f\" y=\"%.2f\" font-size=\"16\" font-weight=\"bold\" fill=\"darkblue\" text-anchor=\"middle\" fill-opacity=\"0,4\" dominant-baseline=\"central\">#</text>\n",
                     p->x, y_svg);
         }
+        iterador_destroi(it); // Lembre-se de destruir o iterador
     }
+
+// ...
 
     // 3. Retângulos de seleção
     if (infos->retangulos_selecao) {
@@ -415,34 +430,37 @@ static void escreverFormaCallback(SmuTreap t, Node n, Info i, double x, double y
 
     switch (tipo) {
         case CIRCULO: {
+            Circle* c = (Circle*)((forma*)i)->forma;
             double raio = obterRaioCirculo(i);
             fprintf(arquivo, "  <circle cx=\"%.2f\" cy=\"%.2f\" r=\"%.2f\" ",
                     x, y_svg, raio);
-            fprintf(arquivo, "fill=\"%s\" stroke=\"%s\" fill-opacity= \"0.8\" stroke-opacity=\"0.6\" class=\"%s\" />\n",
-                    corp_final, corb_final, classe_css);
+            fprintf(arquivo, "fill=\"%s\" stroke=\"%s\" fill-opacity= \"0.8\" stroke-opacity=\"0.6\" class=\"%s\" stroke-width=\"%.2f\" />\n",
+                    corp_final, corb_final, classe_css, c->largura_borda );
             break;
         }
 
         case RETANGULO: {
+             Rect* r = (Rect*)((forma*)i)->forma;
             double forma_x, forma_y, forma_w, forma_h;
             formaCalculaBoundingBox(tipo, i, &forma_x, &forma_y, &forma_w, &forma_h);
             // Corrige Y do retângulo para o sistema SVG:
             double rect_y_svg = contexto->altura_canvas - (forma_y + forma_h); // porque y em SVG é topo do retângulo
             fprintf(arquivo, "  <rect x=\"%.2f\" y=\"%.2f\" width=\"%.2f\" height=\"%.2f\" ",
                     forma_x, rect_y_svg, forma_w, forma_h);
-            fprintf(arquivo, "fill=\"%s\" stroke=\"%s\" fill-opacity = \"0.7\" stroke-opacity=\"0.9\" class=\"%s\" />\n",
-                    corp_final, corb_final, classe_css);
+            fprintf(arquivo, "fill=\"%s\" stroke=\"%s\" fill-opacity = \"0.7\" stroke-opacity=\"0.9\" class=\"%s\" stroke-width=\"%.2f\" />\n",
+                    corp_final, corb_final, classe_css, r->largura_borda);
             break;
         }
 
         case LINHA: {
+            Line* l = (Line*)((forma*)i)->forma;
             double x1, y1, x2, y2;
             obterDadosLinha(i, &x1, &y1, &x2, &y2);
             double y1_svg = contexto->altura_canvas - y1;
             double y2_svg = contexto->altura_canvas - y2;
             fprintf(arquivo, "  <line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" ",
                     x1, y1_svg, x2, y2_svg);
-            fprintf(arquivo, "stroke=\"%s\" stroke-opacity=\"1.0\" class=\"%s\" />\n", corb_final, classe_css);
+            fprintf(arquivo, "stroke=\"%s\" stroke-opacity=\"1.0\" class=\"%s\" stroke-width=\"%.2f\" />\n", corb_final, classe_css, l->largura_borda);
             break;
         }
 
@@ -467,8 +485,8 @@ static void escreverFormaCallback(SmuTreap t, Node n, Info i, double x, double y
 
             fprintf(arquivo, "font-family=\"%s\" font-size=\"%d\" font-weight=\"%s\" ",
                     t->fontFamily, t->fontSize, t->fontWeight);
-            fprintf(arquivo, "fill=\"%s\" stroke=\"%s\" fill-opacity=\"1.0\" stroke-opacity=\"1.0\" text-anchor=\"%s\" class=\"%s\">",
-             corp_final, corb_final, text_anchor, classe_css);
+            fprintf(arquivo, "fill=\"%s\" stroke=\"%s\" fill-opacity=\"1.0\" stroke-opacity=\"1.0\" text-anchor=\"%s\" class=\"%s\" stroke-width=\"%.2f\"  >",
+             corp_final, corb_final, text_anchor, classe_css, t->largura_borda);
 
             imprimeTextoEscapado(arquivo, texto);
             fprintf(arquivo, "</text>\n");

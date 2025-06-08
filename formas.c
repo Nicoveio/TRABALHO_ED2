@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h>
+#define M_PI 3.14159265359
 
 typedef struct {
     int id;             // identificador numérico
@@ -10,6 +11,7 @@ typedef struct {
     double r;           // raio
     char corb[64];      // cor da borda
     char corp[64];      // cor de preenchimento
+    double largura_borda;
 } Circle;
 
 typedef struct {
@@ -18,12 +20,14 @@ typedef struct {
     double w, h;        // largura e altura
     char corb[64];
     char corp[64];
+    double largura_borda;
 } Rect;
 
 typedef struct {
     int id;
     double x1, y1, x2, y2; // coordenadas das extremidades
     char cor[64];
+    double largura_borda;
 } Line;
 
 typedef struct {
@@ -36,6 +40,7 @@ typedef struct {
     char fontFamily[32]; // nova: Arial, serif, etc.
     char fontWeight[8];  // nova: n, b, b+, l
     int fontSize;        // nova: em px
+    double largura_borda;
 } Text;
 
 typedef struct{
@@ -100,6 +105,7 @@ void setCircle(Forma f, int id, double x, double y, double r, const char* corb, 
     c->corb[63] = '\0';
     strncpy(c->corp, corp, 63);
     c->corp[63] = '\0';
+    c->largura_borda =1.0;
 }
 
 void setRect(Forma f, int id, double x, double y, double w, double h, const char* corb, const char* corp) {
@@ -114,6 +120,7 @@ void setRect(Forma f, int id, double x, double y, double w, double h, const char
     r->corb[63] = '\0';
     strncpy(r->corp, corp, 63);
     r->corp[63] = '\0';
+    r->largura_borda = 1.0;
 }
 
 void setLine(Forma f, int id, double x1, double y1, double x2, double y2, const char* cor) {
@@ -126,6 +133,7 @@ void setLine(Forma f, int id, double x1, double y1, double x2, double y2, const 
     l->y2 = y2;
     strncpy(l->cor, cor, 63);
     l->cor[63] = '\0';
+    l->largura_borda = 1.0;
 }
 
 void setText(Forma f, int id, double x, double y, const char* corb, const char* corp, char a, const char* txto,
@@ -149,6 +157,7 @@ void setText(Forma f, int id, double x, double y, const char* corb, const char* 
     strncpy(t->fontWeight, fontWeight, 7);
     t->fontWeight[7] = '\0';
     t->fontSize = fontSize;
+    t->largura_borda = 1.0;
 }
 
 
@@ -208,7 +217,7 @@ void boundingBoxTexto(Text *t, double *x, double *y, double *w, double *h) {
             *x = t->x;
     }
 
-    *y = t->y;
+    *y = t->y - altura_char;
     *w = largura_total;
     *h = altura_char;
 }
@@ -796,4 +805,44 @@ int getFormaId(Forma f){
         Text *t = (Text*)f1->forma;
         return t->id;
     }else printf("Não chegou forma.");
+}
+
+
+void formaSetLarguraBorda(Info i, double nova_largura) {
+    if (!i || nova_largura < 0) return;
+    forma *f = (forma*)i;
+
+    switch (f->tipo) {
+        case CIRCULO:   ((Circle*)f->forma)->largura_borda = nova_largura; break;
+        case RETANGULO: ((Rect*)f->forma)->largura_borda = nova_largura; break;
+        case LINHA:     ((Line*)f->forma)->largura_borda = nova_largura; break; // ADICIONADO
+        case TEXTO:     ((Text*)f->forma)->largura_borda = nova_largura; break; // ADICIONADO
+    }
+}
+
+double formaGetArea(Info i) {
+    if (!i) return 0.0;
+    
+    forma *f = (forma*)i;
+    switch (f->tipo) {
+        case CIRCULO: {
+            Circle* c = (Circle*)f->forma;
+            return M_PI * c->r * c->r; // Área real do círculo
+        }
+        case RETANGULO: {
+            Rect* r = (Rect*)f->forma;
+            return r->w * r->h; // Área real do retângulo
+        }
+        case LINHA: {
+            Line* l = (Line*)f->forma;
+            double dx = l->x2 - l->x1;
+            double dy = l->y2 - l->y1;
+            return 10.0 * sqrt(dx*dx + dy*dy); // 10 * comprimento
+        }
+        case TEXTO: {
+            Text* t = (Text*)f->forma;
+            return 12.0 * strlen(t->txto); // 12 * número de caracteres
+        }
+    }
+    return 0.0;
 }

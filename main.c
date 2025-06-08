@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
     }
 
     // 2. Criação da Árvore e Processamento do .geo
-    SmuTreap arvore = newSmuTreap(getHitCount(parametros), getPromotionRate(parametros), 0.0000000001);
+    SmuTreap arvore = newSmuTreap(getHitCount(parametros), getPromotionRate(parametros), 0.000001);
     setPrioridadeMax(arvore, getPrioridadeMax(parametros));
 
     printf("Processando arquivo .geo...\n");

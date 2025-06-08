@@ -191,7 +191,11 @@ void formaPrintResumo(Info i);
 // Adicione esta declaração
 void formaFprintfResumo(FILE* stream, Info i);
 
-// ...
+
+void formaSetLarguraBorda(Info i, double nova_largura);
+
+// Em formas.h
+double formaGetArea(Info i);
 
 
 #endif // FORMAS_H

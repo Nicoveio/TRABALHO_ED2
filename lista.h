@@ -17,6 +17,7 @@ void lista_libera(Lista lista);
 
 void lista_percorre(Lista lista, void (*func)(Elemento));
 void lista_imprime(Lista lista, PrintElemento printaInfo);
+int lista_tamanho(Lista l);
 
 // Iterador externo
 Iterador lista_iterador(Lista l);

@@ -25,6 +25,7 @@ typedef struct InformacoesAdicionais {
     Lista pontos_x_vermelhos;        // tipo Coord*
     Lista pontos_hashtag_vermelhos;  // tipo Coord*
     Lista pontos_ancoras;            // tipo Coord*
+    Lista formas_destacadas;
     Lista retangulos_selecao;        // tipo BoundingBox*
     Lista vetores_movimento;         // tipo VetorMovimento*
     Lista formas_clonadas;           // tipo Forma
@@ -262,6 +263,30 @@ void imprimeTextoEscapado(FILE *arquivo, const char *texto) {
         }
     }
 }
+
+static double getRaioEquivalente(Info info_forma) {
+    if (!info_forma) return 5.0; 
+
+    DescritorTipoInfo tipo = formaGetTipo(info_forma);
+    forma* f = (forma*)info_forma;
+
+    switch(tipo) {
+        case CIRCULO: {
+         
+            Circle* c = (Circle*)f->forma;
+            return c->r;
+        }
+        case RETANGULO: {
+          
+            Rect* r = (Rect*)f->forma;
+            return (r->w + r->h) / 4.0;
+        }
+        default: {
+           
+            return 5.0;
+        }
+    }
+}
 void desenharInfosAdicionaisSVG(ContextoSVGInterno *ctx) {
     FILE *arq = ctx->arquivo;
     double altura_canvas = ctx->altura_canvas;
@@ -269,9 +294,11 @@ void desenharInfosAdicionaisSVG(ContextoSVGInterno *ctx) {
     InformacoesAdicionaisImp * infos = (InformacoesAdicionaisImp*)ctx->info_adicional;
 
     // 1. Pontos "x" vermelhos (formas destruídas)
+    int contador_ancoras_desenhadas = 0;
     if (infos->pontos_x_vermelhos) {
         Iterador it = lista_iterador(infos->pontos_x_vermelhos);
         while (iterador_tem_proximo(it)) {
+             
             Coord *p = (Coord*) iterador_proximo(it);
             double y_svg = altura_canvas - p->y;
             fprintf(arq, "  <text x=\"%.2f\" y=\"%.2f\" font-size=\"12\" fill=\"red\">x</text>\n",
@@ -298,17 +325,19 @@ void desenharInfosAdicionaisSVG(ContextoSVGInterno *ctx) {
             double rect_y_svg = altura_canvas - (bb->y + bb->h);
             fprintf(arq, "  <rect x=\"%.2f\" y=\"%.2f\" width=\"%.2f\" height=\"%.2f\" ",
                     bb->x, rect_y_svg, bb->w, bb->h);
-            fprintf(arq, "stroke=\"red\" fill=\"none\" stroke-dasharray=\"4 2\" />\n");
+            fprintf(arq, "stroke=\"red\" fill=\"none\" stroke-dasharray=\"4 2\" stroke-opacity = \"0.6\" />\n");
         }
     }
 
     // 4. Círculos nas âncoras (formas selecionadas)
     if (infos->pontos_ancoras) {
+
         Iterador it = lista_iterador(infos->pontos_ancoras);
         while (iterador_tem_proximo(it)) {
+             contador_ancoras_desenhadas++;
             Coord *p = (Coord*) iterador_proximo(it);
             double y_svg = altura_canvas - p->y;
-            fprintf(arq, "  <circle cx=\"%.2f\" cy=\"%.2f\" r=\"3\" fill=\"red\" />\n",
+            fprintf(arq, "  <circle cx=\"%.2f\" cy=\"%.2f\" r=\"1\" fill=\"red\" fill-opacity =\"0.5\"  />\n",
                     p->x, y_svg);
         }
     }
@@ -322,14 +351,43 @@ void desenharInfosAdicionaisSVG(ContextoSVGInterno *ctx) {
             double y2 = altura_canvas - vm->destino.y;
             fprintf(arq, "  <line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" ",
                     vm->origem.x, y1, vm->destino.x, y2);
-            fprintf(arq, "stroke=\"blue\" stroke-width=\"1\" marker-end=\"url(#arrow)\" />\n");
+            fprintf(arq, "stroke=\"red\" stroke-width=\"1\" marker-end=\"url(#arrow)\" stroke-opacity=\"0.2\" />\n");
         }
     }
 
-    // 6. Formas clonadas (já foram deslocadas e têm cor invertida)
-    if (infos->formas_clonadas) {
-        // ainda n sei;
+
+    if (infos->formas_destacadas) {
+        Iterador it = lista_iterador(infos->formas_destacadas);
+        while (iterador_tem_proximo(it)) {
+            Info info_forma = iterador_proximo(it);
+            
+            // Pega o tipo para a nossa lógica condicional
+            DescritorTipoInfo tipo = formaGetTipo(info_forma);
+
+            // 1. Pega a âncora. O destaque SEMPRE será centrado nela.
+            double anchor_x, anchor_y;
+            GetXY(&anchor_x, &anchor_y, info_forma);
+
+       
+          double raio_destaque = getRaioEquivalente(info_forma);
+      
+            double y_svg = altura_canvas - anchor_y;
+
+            fprintf(arq, "  \n", formaGetId(info_forma));
+            fprintf(arq, "  <circle cx=\"%.2f\" cy=\"%.2f\" r=\"%.2f\" ", anchor_x, y_svg, raio_destaque);
+            fprintf(arq, "fill=\"none\" stroke=\"red\" stroke-width=\"1\" />\n");
+        }
+        iterador_destroi(it);
     }
+
+        // =======================================================
+    // ======== BLOCO DE DEPURAÇÃO DE CONTAGEM (SVG) =========
+    // =======================================================
+    // Imprime o resultado da contagem no terminal para comparação.
+    printf("\n[RELATÓRIO DE DEPURAÇÃO - svg.c]\n");
+    printf("- Total de âncoras (círculos vermelhos) efetivamente desenhadas: %d\n", contador_ancoras_desenhadas);
+    fflush(stdout); // Força a impressão imediata no terminal
+    // =======================================================
 }
 
 

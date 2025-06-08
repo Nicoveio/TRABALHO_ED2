@@ -185,6 +185,13 @@ int textoGetConteudoCopia(Info i, char *buffer, int tamanho_buffer);
 void GetXY(double *x, double *y, Forma f);
 int getFormaId(Forma f);
 int getDescritorForma(Forma f);
+// ...
+void formaPrintResumo(Info i);
+
+// Adicione esta declaração
+void formaFprintfResumo(FILE* stream, Info i);
+
+// ...
 
 
 #endif // FORMAS_H

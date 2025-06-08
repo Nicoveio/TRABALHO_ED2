@@ -235,51 +235,54 @@ void formaCalculaBoundingBox(DescritorTipoInfo tipo, Info i, double *x, double *
 
 
 
+// Nova assinatura, agora aceitando o parâmetro 'tolerancia'
 bool boundingBoxDentroDeRegiao(double bx, double by, double bw, double bh, 
-                               double x1, double y1, double x2, double y2) {
+                               double x1, double y1, double x2, double y2){
 
+   const double TOLERANCIA_GEOMETRICA = 0.01;
+
+    // Normalização das coordenadas da região (seu código já faz isso, está ótimo)
     double rx1 = x1 < x2 ? x1 : x2;
     double rx2 = x1 > x2 ? x1 : x2;
     double ry1 = y1 < y2 ? y1 : y2;
     double ry2 = y1 > y2 ? y1 : y2;
 
-    
-    return (bx >= rx1) && (by >= ry1) &&
-           (bx + bw <= rx2) && (by + bh <= ry2);
+    // A verificação, agora usando a nossa tolerância geométrica local e previsível.
+    return (bx >= rx1 - TOLERANCIA_GEOMETRICA) &&
+           (by >= ry1 - TOLERANCIA_GEOMETRICA) &&
+           ((bx + bw) <= rx2 + TOLERANCIA_GEOMETRICA) &&
+           ((by + bh) <= ry2 + TOLERANCIA_GEOMETRICA);
 }
 
 
 
-bool circuloDentroDeRegiao(Circle *c, double x1, double y1, double x2, double y2) {
-   
-    return (c->x - c->r >= x1) && (c->x + c->r <= x2) &&
-           (c->y - c->r >= y1) && (c->y + c->r <= y2);
+
+static bool circuloDentroDeRegiao(Circle *c, double x1, double y1, double x2, double y2, double tolerancia) {
+    return (c->x - c->r >= x1 - tolerancia) && (c->x + c->r <= x2 + tolerancia) &&
+           (c->y - c->r >= y1 - tolerancia) && (c->y + c->r <= y2 + tolerancia);
 }
 
-bool retanguloDentroDeRegiao(Rect *r, double x1, double y1, double x2, double y2) {
-    
-    return (r->x >= x1) && (r->x + r->w <= x2) &&
-           (r->y >= y1) && (r->y + r->h <= y2);
+static bool retanguloDentroDeRegiao(Rect *r, double x1, double y1, double x2, double y2, double tolerancia) {
+    return (r->x >= x1 - tolerancia) && (r->x + r->w <= x2 + tolerancia) &&
+           (r->y >= y1 - tolerancia) && (r->y + r->h <= y2 + tolerancia);
 }
 
-bool linhaDentroDeRegiao(Line *l, double x1, double y1, double x2, double y2) {
-    double xmin = x1 < x2 ? x1 : x2;
-    double xmax = x1 > x2 ? x1 : x2;
-    double ymin = y1 < y2 ? y1 : y2;
-    double ymax = y1 > y2 ? y1 : y2;
-
-    return (l->x1 >= xmin) && (l->x1 <= xmax) && (l->y1 >= ymin) && (l->y1 <= ymax) &&
-           (l->x2 >= xmin) && (l->x2 <= xmax) && (l->y2 >= ymin) && (l->y2 <= ymax);
+static bool linhaDentroDeRegiao(Line *l, double x1, double y1, double x2, double y2, double tolerancia) {
+    // Para uma linha, verificamos se ambos os pontos estão dentro da região com tolerância.
+    return (l->x1 >= x1 - tolerancia) && (l->x1 <= x2 + tolerancia) &&
+           (l->y1 >= y1 - tolerancia) && (l->y1 <= y2 + tolerancia) &&
+           (l->x2 >= x1 - tolerancia) && (l->x2 <= x2 + tolerancia) &&
+           (l->y2 >= y1 - tolerancia) && (l->y2 <= y2 + tolerancia);
 }
 
-
-bool textoDentroDeRegiao(Text *t, double x1, double y1, double x2, double y2) {
-    double largura_char = 8.0;
+static bool textoDentroDeRegiao(Text *t, double x1, double y1, double x2, double y2, double tolerancia) {
+    // Sua lógica para calcular o bounding box do texto é uma boa aproximação.
+    // Vamos usá-la aqui.
+    double largura_char = 8.0; // Valores aproximados
     double altura_char = 12.0;
-    int len = strlen(t->txto);
-    double largura_total = len * largura_char;
-
+    double largura_total = strlen(t->txto) * largura_char;
     double bx;
+
     switch (t->a) {
         case 'i': bx = t->x; break;
         case 'm': bx = t->x - largura_total / 2.0; break;
@@ -287,39 +290,30 @@ bool textoDentroDeRegiao(Text *t, double x1, double y1, double x2, double y2) {
         default:  bx = t->x;
     }
 
-    double by = t->y;
+    double by = t->y - altura_char; // Y da âncora geralmente é a base do texto.
 
-    return (bx >= x1) && (bx + largura_total <= x2) &&
-           (by >= y1) && (by + altura_char <= y2);
+    return (bx >= x1 - tolerancia) && (bx + largura_total <= x2 + tolerancia) &&
+           (by >= y1 - tolerancia) && (by + altura_char <= y2 + tolerancia);
 }
+
+
 
 
 
 bool formaDentroDeRegiao(SmuTreap t, Node n, Info i, double x1, double y1, double x2, double y2) {
-    printf("Dentro de formaDentroDeRegiao, info=%p\n", i);
+    if (!i) return false;
 
-    forma *f = (forma*) i;  
+    double forma_x, forma_y, forma_w, forma_h;
+    DescritorTipoInfo tipo = getTypeInfoSrbT(t, n);
+    
 
-    double bx, by, bw, bh;
-    formaCalculaBoundingBox(f->tipo, (Info)f, &bx, &by, &bw, &bh);
+    formaCalculaBoundingBox(tipo, i, &forma_x, &forma_y, &forma_w, &forma_h);
 
-    bool bboxDentro = boundingBoxDentroDeRegiao(bx, by, bw, bh, x1, y1, x2, y2);
-    if (!bboxDentro) return false;
 
-    switch(f->tipo) {
-        case CIRCULO:
-            return circuloDentroDeRegiao((Circle*)f->forma, x1, y1, x2, y2);
-        case RETANGULO:
-            return retanguloDentroDeRegiao(f->forma, x1, y1, x2, y2);
-        case LINHA:
-            return linhaDentroDeRegiao(f->forma, x1, y1, x2, y2);
-        case TEXTO:
-            return textoDentroDeRegiao(f->forma, x1, y1, x2, y2);
-        default:
-            return false;
-    }
+   
+    return boundingBoxDentroDeRegiao(forma_x, forma_y, forma_w, forma_h,
+                                     x1, y1, x2, y2);
 }
-
 
 
 void printForma(Forma f) {
@@ -390,6 +384,7 @@ bool formaAncoraIgual(Info i, double x, double y) {
             break;
         }
     }
+
     return fabs(fx - x) < 1e-6 && fabs(fy - y) < 1e-6;
 }
 
@@ -529,6 +524,9 @@ void formaSetCores(Info i, const char* corb, const char* corp) {
             break;
         }
         case LINHA:
+                Line *l = (Line*)f->forma;
+            strncpy(l->cor, corb, 63);
+            l->cor[63] = '\0';
             break; 
     }
 }
@@ -615,39 +613,46 @@ int textoGetConteudoCopia(Info i, char *buffer, int tamanho_buffer) {
 }
 
 
-void formaPrintResumo(Info i) {
-    if (!i) return;
+// Coloque esta nova função em formas.c
+void formaFprintfResumo(FILE* stream, Info i) {
+    if (!i || !stream) return; // Verifica se o stream e a info são válidos
+    
     forma *f = (forma*)i;
 
+    // A lógica do switch é a mesma, apenas trocando printf por fprintf
     switch (f->tipo) {
         case CIRCULO: {
             Circle *c = (Circle*)f->forma;
-            printf("Círculo #%d: centro=(%.2lf, %.2lf), raio=%.2lf, corb=%s, corp=%s\n",
+            fprintf(stream, "Círculo #%d: centro=(%.2lf, %.2lf), raio=%.2lf, corb=%s, corp=%s",
                 c->id, c->x, c->y, c->r, c->corb, c->corp);
             break;
         }
         case RETANGULO: {
             Rect *r = (Rect*)f->forma;
-            printf("Retângulo #%d: x=%.2lf, y=%.2lf, w=%.2lf, h=%.2lf, corb=%s, corp=%s\n",
+            fprintf(stream, "Retângulo #%d: x=%.2lf, y=%.2lf, w=%.2lf, h=%.2lf, corb=%s, corp=%s",
                 r->id, r->x, r->y, r->w, r->h, r->corb, r->corp);
             break;
         }
         case LINHA: {
             Line *l = (Line*)f->forma;
-            printf("Linha #%d: (%.2lf, %.2lf) até (%.2lf, %.2lf), cor=%s\n",
+            fprintf(stream, "Linha #%d: (%.2lf, %.2lf) até (%.2lf, %.2lf), cor=%s",
                 l->id, l->x1, l->y1, l->x2, l->y2, l->cor);
             break;
         }
         case TEXTO: {
             Text *t = (Text*)f->forma;
-            printf("Texto #%d: pos=(%.2lf, %.2lf), âncora=%c, texto=\"%s\", corb=%s, corp=%s\n",
+            fprintf(stream, "Texto #%d: pos=(%.2lf, %.2lf), âncora=%c, texto=\"%s\", corb=%s, corp=%s",
                 t->id, t->x, t->y, t->a, t->txto, t->corb, t->corp);
             break;
         }
     }
 }
 
-
+// Opcional, mas recomendado: atualize sua função antiga para reutilizar código
+void formaPrintResumo(Info i) {
+    formaFprintfResumo(stdout, i); // Chama a nova função, mandando para o terminal (stdout)
+    printf("\n"); // Adiciona o newline que o fprintf não tem
+}
 
 typedef struct {
     int modo;           

@@ -416,7 +416,7 @@ void buscaNosDentro(SmuTreap t, NodeST* no, double x1, double y1, double x2, dou
 
     if (no->x >= x1 && no->x <= x2 && no->y >= y1 && no->y <= y2) {
     double promotionRate = ((SmuTreapImp*)t)->promotionRate;
-    promoteNodeSmuT(t, (Node)no, promotionRate);
+    //promoteNodeSmuT(t, (Node)no, promotionRate);
         lista_insere(L, (Elemento) no);
         *encontrou = true;
     }
@@ -445,8 +445,10 @@ bool buscaInfosDentro(NodeST* no, SmuTreap t, double x1, double y1, double x2, d
 
         if (f(t, no, no->info, x1, y1, x2, y2)) {
             double promotionRate = ((SmuTreapImp*)t)->promotionRate;
-            promoteNodeSmuT(t, (Node)no, promotionRate);
-            lista_insere(L, (Elemento)no->info);
+            SmuTreapImp* arvore = (SmuTreapImp*)t;
+            no->hits++;            
+            /*promoteNodeSmuT(t, (Node)no, promotionRate);*/
+            lista_insere(L, (Elemento)no);
             achou = true;
         }
 
@@ -486,7 +488,7 @@ bool atingidosAux(SmuTreapImp* t, NodeST* no, double x, double y, FpontoInternoA
  
     if (f((SmuTreap)t, (Node)no, no->info, x, y)) {
         double promotionRate = ((SmuTreapImp*)t)->promotionRate;
-        promoteNodeSmuT(t, no, promotionRate);
+       // promoteNodeSmuT(t, no, promotionRate);
         lista_insere(L, (Elemento)no); 
         *encontrou = true;
     }
@@ -544,34 +546,42 @@ typedef struct {
 } BuscaParams;
 
 
- Node procuraNoSmuTAux(NodeST* raiz, SmuTreapImp* arvore, FsearchNo f, void* aux, double x, double y) {
-    if (raiz == NULL) return NULL;
+ static Node procuraNoSmuTAux(NodeST* no, FsearchNo f, void* aux) {
 
-  
-    if (f((SmuTreap)arvore, (Node)raiz, raiz->info, raiz->x, raiz->y, aux)) {
-        raiz->hits++;
-        if (arvore->hitCount == raiz->hits) {
-            promoteNodeSmuT((SmuTreap)arvore, (Node)raiz, arvore->promotionRate);
-        }
-        return (Node)raiz;
+    if (no == NULL) {
+        return NULL;
     }
 
-  
-    if (x < raiz->x - arvore->epsilon || 
-       (fabs(x - raiz->x) <= arvore->epsilon && y < raiz->y - arvore->epsilon)) {
-        return procuraNoSmuTAux(raiz->esq, arvore, f, aux, x, y);
-    } else {
-        return procuraNoSmuTAux(raiz->dir, arvore, f, aux, x, y);
+    if (f(NULL, (Node)no, no->info, 0, 0, aux)) {
+
+        return (Node)no;
     }
+    Node encontrado_esq = procuraNoSmuTAux(no->esq, f, aux);
+
+    if (encontrado_esq != NULL) {
+        return encontrado_esq;
+    }
+    return procuraNoSmuTAux(no->dir, f, aux);
 }
 
+
+
 Node procuraNoSmuT(SmuTreap t, FsearchNo f, void *aux) {
-    if (!t || !f || !aux) return NULL;
+    if (!t || !f) {
+        return NULL;
+    }
 
     SmuTreapImp* arvore = (SmuTreapImp*)t;
-    BuscaParams* params = (BuscaParams*) aux;
 
-    return procuraNoSmuTAux(arvore->raiz, arvore, f, aux, params->x, params->y);
+    return procuraNoSmuTAux(arvore->raiz, f, aux);
+}
+
+
+
+double getEpsilonSmuT(SmuTreap t) {
+    if (!t) return 0.0;
+    SmuTreapImp* arv = (SmuTreapImp*) t;
+    return arv->epsilon;
 }
 
 

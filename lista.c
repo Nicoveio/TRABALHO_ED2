@@ -1,6 +1,7 @@
 #include "lista.h"
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 typedef struct no {
     Elemento dado;
@@ -27,6 +28,10 @@ Lista lista_cria() {
 
 void lista_insere(Lista lista, Elemento elemento) {
     if (!lista) return;
+
+    /*printf("DEBUG (lista_insere): Inserindo elemento no endereço de memória %p\n", elemento);
+    fflush(stdout);*/
+
     ListaImp* l = (ListaImp*)lista;
 
     No* novo_no = (No*)malloc(sizeof(No));
@@ -83,7 +88,11 @@ void lista_percorre(Lista lista, void (*func)(Elemento)) {
 void lista_imprime(Lista lista, PrintElemento printaInfo) {
     lista_percorre(lista, printaInfo);
 }
-
+ int lista_tamanho(Lista l){
+    if(!l)return 0;
+    ListaImp* lista = (ListaImp*)l;
+    return lista->tamanho;
+ }
 // ---------------------- Iterador Externo ----------------------
 
 Iterador lista_iterador(Lista l) {

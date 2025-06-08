@@ -210,6 +210,7 @@ Node procuraNoSmuT(SmuTreap t, FsearchNo f, void *aux);
    Neste caso, retorna o no' encontrado. Caso a busca falhe,
    retorna NULL.
  */
+double getEpsilonSmuT(SmuTreap t);
 
 bool printDotSmuTreap(SmuTreap t, char *fn);
 /* Gera representacao da arvore no arquivo fn, usando a Dot Language

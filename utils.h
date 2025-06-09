@@ -124,10 +124,44 @@ char* getCaminhoTxtConsulta(void *parametros);
  */
 void imprimirParametros(void *parametros);
 
+/**
+ * @brief Obtém o valor máximo de prioridade para os nós da árvore.
+ * Este valor é usado para gerar prioridades aleatórias na inserção de nós.
+ * @param parametros O ponteiro opaco para a struct de parâmetros.
+ * @return O valor da prioridade máxima definido pelo usuário (via -p) ou o valor padrão.
+ */
 int getPrioridadeMax(void* parametros);
+
+/**
+ * @brief Obtém a contagem de 'hits' (acessos) necessária para promover um nó.
+ * @param parametros O ponteiro opaco para a struct de parâmetros.
+ * @return O número de acessos definido pelo usuário (via -hc) ou o valor padrão.
+ */
 int getHitCount(void* parametros);
+
+/**
+ * @brief Obtém a taxa (fator multiplicativo) de promoção para os nós da árvore.
+ * @param parametros O ponteiro opaco para a struct de parâmetros.
+ * @return O fator de promoção definido pelo usuário (via -pr) ou o valor padrão.
+ */
 double getPromotionRate(void* parametros);
 
+// Em utils.h, junto com as outras funções getCaminho...
 
-#endif // PARAMETROS_H
+/**
+ * Gera o caminho completo do arquivo .dot base (pós-geo)
+ * @param parametros Objeto de parâmetros
+ * @return String com caminho (deve ser liberada com free) ou NULL
+ */
+char* getCaminhoDotBase(void *parametros);
+
+/**
+ * Gera o caminho completo do arquivo .dot de consulta (pós-qry)
+ * @param parametros Objeto de parâmetros
+ * @return String com caminho (deve ser liberada com free) ou NULL
+ */
+char* getCaminhoDotConsulta(void *parametros);
+
+
+#endif 
 

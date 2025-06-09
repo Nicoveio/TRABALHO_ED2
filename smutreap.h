@@ -212,6 +212,8 @@ Node procuraNoSmuT(SmuTreap t, FsearchNo f, void *aux);
  */
 double getEpsilonSmuT(SmuTreap t);
 
+/* Retorna o parametro epslon da arvore, do qual é naturalmente um tipo double.*/
+
 bool printDotSmuTreap(SmuTreap t, char *fn);
 /* Gera representacao da arvore no arquivo fn, usando a Dot Language
    (ver https://graphviz.org/). Retorna falso, caso o arquivo nao possa

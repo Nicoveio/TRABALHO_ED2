@@ -5,6 +5,7 @@
 #include "formas.h"
 #include "utils.h"
 #include "svg.h"
+#include "tabelaBusca.h"
 
 #define MAX_TENTATIVAS 10000
 #define INCREMENTO 0.0001
@@ -25,6 +26,8 @@ void processaGeo(void *parametros, SmuTreap t) {
         fprintf(stderr, "ERRO: Falha ao abrir o arquivo GEO.\n");
         exit(1);
     }
+    TabelaBusca coordenadas_usadas = tb_cria(997);
+    if (!coordenadas_usadas) {  return; }
 
     char linha[512], comando[4];
     char corb[64], corp[64], cor[64], txto[1024], a;
@@ -36,7 +39,7 @@ void processaGeo(void *parametros, SmuTreap t) {
     int id;
     double x, y, r, w, h, x1, y1, x2, y2;
 
-    printf("DEBUG: Iniciando processamento do arquivo GEO...\n");
+    printf(" Iniciando processamento do arquivo GEO...\n");
 
     while (fgets(linha, sizeof(linha), geo)) {
         linha_numero++;
@@ -47,8 +50,6 @@ void processaGeo(void *parametros, SmuTreap t) {
         sscanf(ptr, "%3s", comando);
         if (strcmp(comando, "ts") == 0) {
             sscanf(ptr, "ts %31s %7s %d", estiloFontFamily, estiloFontWeight, &estiloFontSize);
-            printf("DEBUG: Estilo de texto definido (Font: %s, Weight: %s, Size: %d)\n",
-                   estiloFontFamily, estiloFontWeight, estiloFontSize);
             continue;
         }
 
@@ -65,17 +66,19 @@ void processaGeo(void *parametros, SmuTreap t) {
             }
             forma = criaForma(CIRCULO);
             setCircle(forma, id, x, y, r, corb, corp);
-            while ((verificacao = getNodeSmuT(t, x, y)) && tentativas++ < MAX_TENTATIVAS)
-                x += INCREMENTO;
+            while (tb_busca(coordenadas_usadas, x, y) && tentativas++ < MAX_TENTATIVAS) {
+                  x += INCREMENTO;
+            }
             if (tentativas >= MAX_TENTATIVAS) {
                 fprintf(stderr, "ERRO: Falha ao inserir CIRCULO ID=%d após %d tentativas.\n", id, MAX_TENTATIVAS);
                 liberaForma(forma);
                 continue;
             }
             insertSmuT(t, x, y, forma, CIRCULO, formaCalculaBoundingBox);
-            if (getNodeSmuT(t, x, y)) {
-                formas_inseridas++;
-            }
+            tb_insere(coordenadas_usadas, x, y);
+        
+            formas_inseridas++;
+            
 
         } else if (strcmp(comando, "r") == 0) {
             if (sscanf(ptr, "r %d %lf %lf %lf %lf %63s %63s", &id, &x, &y, &w, &h, corb, corp) != 7) {
@@ -84,17 +87,16 @@ void processaGeo(void *parametros, SmuTreap t) {
             }
             forma = criaForma(RETANGULO);
             setRect(forma, id, x, y, w, h, corb, corp);
-            while ((verificacao = getNodeSmuT(t, x, y)) && tentativas++ < MAX_TENTATIVAS)
-                x += INCREMENTO;
+            while (tb_busca(coordenadas_usadas, x, y) && tentativas++ < MAX_TENTATIVAS)
+                x+=INCREMENTO;
             if (tentativas >= MAX_TENTATIVAS) {
                 fprintf(stderr, "ERRO: Falha ao inserir RETANGULO ID=%d após %d tentativas.\n", id, MAX_TENTATIVAS);
                 liberaForma(forma);
                 continue;
             }
             insertSmuT(t, x, y, forma, RETANGULO, formaCalculaBoundingBox);
-            if (getNodeSmuT(t, x, y)) {
-                formas_inseridas++;
-            }
+              tb_insere(coordenadas_usadas, x, y);
+            formas_inseridas++;
 
         } else if (strcmp(comando, "l") == 0) {
             if (sscanf(ptr, "l %d %lf %lf %lf %lf %63s", &id, &x1, &y1, &x2, &y2, cor) != 6) {
@@ -103,10 +105,9 @@ void processaGeo(void *parametros, SmuTreap t) {
             }
             forma = criaForma(LINHA);
             setLine(forma, id, x1, y1, x2, y2, cor);
-            double x_med = (x1 + x2) / 2.0;
-            double y_med = (y1 + y2) / 2.0;
-            x = x_med; y = y_med;
-            while ((verificacao = getNodeSmuT(t, x, y)) && tentativas++ < MAX_TENTATIVAS)
+            double x = x1;
+            double y = y1;
+             while (tb_busca(coordenadas_usadas, x, y) && tentativas++ < MAX_TENTATIVAS)
                 x += INCREMENTO;
             if (tentativas >= MAX_TENTATIVAS) {
                 fprintf(stderr, "ERRO: Falha ao inserir LINHA ID=%d após %d tentativas.\n", id, MAX_TENTATIVAS);
@@ -114,9 +115,9 @@ void processaGeo(void *parametros, SmuTreap t) {
                 continue;
             }
             insertSmuT(t, x, y, forma, LINHA, formaCalculaBoundingBox);
-            if (getNodeSmuT(t, x, y)) {
-                formas_inseridas++;
-            }
+              tb_insere(coordenadas_usadas, x, y);
+            formas_inseridas++;
+    
 
         } else if (strcmp(comando, "t") == 0) {
             if (sscanf(ptr, "t %d %lf %lf %63s %63s %c %1023[^\n]", &id, &x, &y, corb, corp, &a, txto) != 7) {
@@ -132,7 +133,7 @@ void processaGeo(void *parametros, SmuTreap t) {
             forma = criaForma(TEXTO);
             setText(forma, id, x, y, corb, corp, a, txto,
                     estiloFontFamily, estiloFontWeight, estiloFontSize);
-            while ((verificacao = getNodeSmuT(t, x, y)) && tentativas++ < MAX_TENTATIVAS)
+           while (tb_busca(coordenadas_usadas, x, y) && tentativas++ < MAX_TENTATIVAS)
                 x += INCREMENTO;
             if (tentativas >= MAX_TENTATIVAS) {
                 fprintf(stderr, "ERRO: Falha ao inserir TEXTO ID=%d após %d tentativas.\n", id, MAX_TENTATIVAS);
@@ -140,9 +141,9 @@ void processaGeo(void *parametros, SmuTreap t) {
                 continue;
             }
             insertSmuT(t, x, y, forma, TEXTO, formaCalculaBoundingBox);
-            if (getNodeSmuT(t, x, y)) {
+              tb_insere(coordenadas_usadas, x, y);
                 formas_inseridas++;
-            }
+            
 
         } else {
             fprintf(stderr, "AVISO: Comando desconhecido '%s' na linha %d: %s", comando, linha_numero, linha);
@@ -152,22 +153,7 @@ void processaGeo(void *parametros, SmuTreap t) {
 
     fclose(geo);
 
-    char *caminho_dot = getCaminhoSvgBase(parametros);
-        if (!caminho_dot) {
-          fprintf(stderr, "Erro ao criar caminho do arquivo DOT\n");
-          return;
-            }
 
-        size_t len = strlen(caminho_dot);
-        strcpy(caminho_dot + len - 3, "dot");
-
-if (!printDotSmuTreap(t, caminho_dot)) {
-    fprintf(stderr, "ERRO: Falha ao criar arquivo DOT.\n");
-} else {
-    printf("DEBUG: Arquivo DOT gerado com sucesso.\n");
-}
-
-free(caminho_dot);
     printf("\n=== RELATÓRIO FINAL ===\n");
     printf("Linhas processadas: %d\n", linha_numero);
     printf("Tentativas de inserção: %d\n", formas_tentativas);

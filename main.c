@@ -5,79 +5,67 @@
 #include "smutreap.h"
 #include "formas.h"
 #include "svg.h"
-#include "qry.h"  
+#include "qry.h"
+#include <math.h>
 
 int main(int argc, char *argv[]) {
-    // 1. Processamento de Argumentos
     void *parametros = criarParametros();
-    if (!parametros) {
-        fprintf(stderr, "Erro ao alocar parâmetros.\n");
-        return 1;
-    }
-
-    if (!processarArgumentos(parametros, argc, argv)) {
-        destruirParametros(parametros);
-        return 2;
-    }
-
-    // 2. Criação da Árvore e Processamento do .geo
+    processarArgumentos(parametros, argc, argv); // Assumindo tratamento de erro interno
     SmuTreap arvore = newSmuTreap(getHitCount(parametros), getPromotionRate(parametros), 0.000001);
     setPrioridadeMax(arvore, getPrioridadeMax(parametros));
-
-    printf("Processando arquivo .geo...\n");
     processaGeo(parametros, arvore);
     printf("✓ Arquivo GEO processado com sucesso.\n");
 
-    // 3. Geração do SVG Base (antes das consultas)
+    char* caminho_dot_base = getCaminhoDotBase(parametros);
+    if (caminho_dot_base) {
+        printf("Gerando .dot da árvore base em: %s\n", caminho_dot_base);
+        printDotSmuTreap(arvore, caminho_dot_base);
+        free(caminho_dot_base);
+    }
+
     char *caminho_svg_base = getCaminhoSvgBase(parametros);
     if (caminho_svg_base) {
         printf("Gerando SVG base em: %s\n", caminho_svg_base);
-        if (gerarSVG(arvore, NULL, caminho_svg_base)) {
-            printf("✓ Arquivo SVG base gerado com sucesso!\n");
-        } else {
-            printf("✗ Erro ao gerar arquivo SVG base.\n");
-        }
+        gerarSVG(arvore, NULL, caminho_svg_base);
         free(caminho_svg_base);
     }
 
-    // 4. Processamento do .qry (se existir)
+
     if (temArquivoQry(parametros)) {
         printf("\n=== PROCESSANDO CONSULTAS (.qry) ===\n");
-
         InformacoesAdicionais infosDaConsulta = processaQry(parametros, arvore);
 
         if (infosDaConsulta) {
             printf("✓ Arquivo QRY processado com sucesso.\n");
+            
+
+            char* caminho_dot_consulta = getCaminhoDotConsulta(parametros);
+            if (caminho_dot_consulta) {
+                printf("Gerando .dot da árvore final em: %s\n", caminho_dot_consulta);
+                printDotSmuTreap(arvore, caminho_dot_consulta);
+                free(caminho_dot_consulta);
+            }
+   
 
             char *caminho_svg_consulta = getCaminhoSvgConsulta(parametros);
             if (caminho_svg_consulta) {
                 printf("Gerando SVG de consulta em: %s\n", caminho_svg_consulta);
                 gerarSVG(arvore, infosDaConsulta, caminho_svg_consulta);
-                printf("✓ SVG de consulta gerado.\n");
                 free(caminho_svg_consulta);
             }
 
-            char *caminho_txt_consulta = getCaminhoTxtConsulta(parametros);
-            if (caminho_txt_consulta) {
-                printf("✓ Relatório TXT gerado em: %s\n", caminho_txt_consulta);
-                free(caminho_txt_consulta);
-            }
-
-            // Lembre-se de criar a função para liberar esta memória!
-            // destruirInformacoesAdicionais(infosDaConsulta);
-            
-            printf("=== CONSULTAS CONCLUÍDAS ===\n");
+        
         } else {
             fprintf(stderr, "✗ Erro fatal durante o processamento do arquivo QRY.\n");
         }
-    } else {
-        printf("\nNenhum arquivo .qry fornecido - processamento concluído.\n");
+        destruirInformacoesAdicionais(infosDaConsulta);
     }
 
     // 5. Limpeza Final
-    printf("\nFinalizando o programa e liberando memória...\n");
+    printf("\nFinalizando o programa...\n");
     destruirParametros(parametros);
     killSmuTreap(arvore);
+
 
     printf("Programa concluído.\n");
     return 0;

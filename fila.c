@@ -1,102 +1,101 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include "fila.h"
+#include "fila.h" // A interface não muda
 
-struct fila {
-    Elemento* dados;
-    int inicio;
-    int fim;
-    int capacidade;
+// --- NOVAS ESTRUTURAS INTERNAS ---
+
+// Nó da lista encadeada. Cada nó guarda um elemento e aponta para o próximo.
+typedef struct no_fila {
+    Elemento dado;
+    struct no_fila* prox;
+} NoFila;
+
+// A estrutura da fila agora guarda ponteiros para o primeiro e o último nó.
+typedef struct fila_imp {
+    NoFila* inicio;
+    NoFila* fim;
     int tamanho;
-};
+} FilaImp;
 
-Fila fila_cria(int capacidade_inicial) {
-    if (capacidade_inicial <= 0) capacidade_inicial = 10; // capacidade padrão
 
-    struct fila* f = (struct fila*) malloc(sizeof(struct fila));
+// --- IMPLEMENTAÇÃO DAS FUNÇÕES PÚBLICAS ---
+
+Fila fila_cria() {
+    FilaImp* f = (FilaImp*) malloc(sizeof(FilaImp));
     if (!f) return NULL;
 
-    f->dados = (Elemento*) malloc(capacidade_inicial * sizeof(Elemento));
-    if (!f->dados) {
-        free(f);
-        return NULL;
-    }
-
-    f->inicio = 0;
-    f->fim = 0;
-    f->capacidade = capacidade_inicial;
+    f->inicio = NULL;
+    f->fim = NULL;
     f->tamanho = 0;
-
     return (Fila) f;
 }
 
 void fila_libera(Fila fila) {
     if (!fila) return;
 
-    struct fila* f = (struct fila*) fila;
-    free(f->dados);
-    free(f);
-}
-
-bool fila_vazia(Fila fila) {
-    if (!fila) return true;
-
-    struct fila* f = (struct fila*) fila;
-    return (f->tamanho == 0);
-}
-
-static bool fila_redimensiona(struct fila* f, int nova_capacidade) {
-Elemento* novo = (Elemento*) malloc(nova_capacidade * sizeof(Elemento));
-if (!novo) return false;
-
-// Copia os elementos antigos para o novo buffer
-int tamanho = (f->fim >= f->inicio)
-    ? f->fim - f->inicio
-    : f->capacidade - f->inicio + f->fim;
-
-for (int i = 0; i < tamanho; i++) {
-    novo[i] = f->dados[(f->inicio + i) % f->capacidade];
-}
-
-// Atualiza índices e ponteiros
-f->inicio = 0;
-f->fim = tamanho;
-free(f->dados);
-f->dados = novo;
-f->capacidade = nova_capacidade;
-return true;
+    // Remove todos os elementos para liberar a memória de cada nó
+    while (!fila_vazia(fila)) {
+        fila_remove(fila);
+    }
+    // Libera a estrutura da fila em si
+    free(fila);
 }
 
 bool fila_insere(Fila fila, Elemento elem) {
     if (!fila) return false;
 
-    struct fila* f = (struct fila*) fila;
+    FilaImp* f = (FilaImp*) fila;
 
-    if (f->tamanho == f->capacidade) {
-        // dobrar a capacidade
-        if (!fila_redimensiona(f, f->capacidade * 2)) {
-            return false;
-        }
+    // 1. Cria o novo nó que entrará na fila
+    NoFila* novo_no = (NoFila*) malloc(sizeof(NoFila));
+    if (!novo_no) return false;
+    novo_no->dado = elem;
+    novo_no->prox = NULL; // O novo nó sempre será o último, então não aponta para ninguém
+
+    // 2. Adiciona o nó no final da fila
+    if (fila_vazia(fila)) {
+        // Se a fila está vazia, o novo nó é tanto o início quanto o fim
+        f->inicio = novo_no;
+        f->fim = novo_no;
+    } else {
+        // Se não, o 'prox' do antigo último nó aponta para o novo
+        f->fim->prox = novo_no;
+        // E o novo nó se torna o último
+        f->fim = novo_no;
     }
 
-    f->dados[f->fim] = elem;
-    f->fim = (f->fim + 1) % f->capacidade;
     f->tamanho++;
     return true;
 }
 
 Elemento fila_remove(Fila fila) {
-    if (!fila) return NULL;
+    if (!fila || fila_vazia(fila)) return NULL;
 
-    struct fila* f = (struct fila*) fila;
+    FilaImp* f = (FilaImp*) fila;
 
-    if (f->tamanho == 0) return NULL;
+    // 1. Guarda o nó do início para podermos liberar sua memória
+    NoFila* no_removido = f->inicio;
+    Elemento dado = no_removido->dado;
 
-    Elemento elem = f->dados[f->inicio];
-    f->inicio = (f->inicio + 1) % f->capacidade;
+    // 2. Avança o início da fila para o próximo elemento
+    f->inicio = f->inicio->prox;
+
+    // 3. Caso especial: se a fila ficou vazia após a remoção,
+    //    o fim também deve ser NULL.
+    if (f->inicio == NULL) {
+        f->fim = NULL;
+    }
+
+    // 4. Libera a memória do nó que foi removido
+    free(no_removido);
     f->tamanho--;
 
-    // opcional: reduzir capacidade se fila ficar muito vazia (não obrigatório)
-    return elem;
+    return dado;
+}
+
+bool fila_vazia(Fila fila) {
+    if (!fila) return true;
+    FilaImp* f = (FilaImp*) fila;
+    return f->tamanho == 0;
 }

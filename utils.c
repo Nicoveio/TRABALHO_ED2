@@ -521,3 +521,43 @@ void imprimirParametros(void *parametros) {
     printf("Promotion rate: %.2f\n", params->promotion_rate);
     printf("=============================\n");
 }
+
+
+char* getCaminhoDotBase(void *parametros) {
+    if (!parametros) return NULL;
+    Parametros *params = (Parametros*)parametros;
+    
+    char *nome_base = extrair_nome_base(params->arquivo_geo);
+    if (!nome_base) return NULL;
+    
+    size_t len = strlen(params->dir_saida) + strlen(nome_base) + 10;
+    char *caminho = malloc(len);
+    if (caminho) {
+        snprintf(caminho, len, "%s/%s.dot", params->dir_saida, nome_base);
+    }
+    
+    free(nome_base);
+    return caminho;
+}
+
+char* getCaminhoDotConsulta(void *parametros) {
+    if (!parametros) return NULL;
+    Parametros *params = (Parametros*)parametros;
+    if (!params->arquivo_qry) return NULL;
+    
+    char *nome_base_geo = extrair_nome_base(params->arquivo_geo);
+    char *nome_base_qry = extrair_nome_base(params->arquivo_qry);
+    
+    if (!nome_base_geo || !nome_base_qry) { /* ... tratamento de erro ... */ return NULL; }
+    
+    // Aloca espaço para "caminho/nome_geo-nome_qry.dot\0"
+    size_t len = strlen(params->dir_saida) + strlen(nome_base_geo) + strlen(nome_base_qry) + 15;
+    char *caminho = malloc(len);
+    if (caminho) {
+        snprintf(caminho, len, "%s/%s-%s.dot", params->dir_saida, nome_base_geo, nome_base_qry);
+    }
+    
+    free(nome_base_geo);
+    free(nome_base_qry);
+    return caminho;
+}

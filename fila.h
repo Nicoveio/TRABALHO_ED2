@@ -11,7 +11,7 @@ typedef void* Fila;      // Tipo opaco para fila, implementação oculta
  * @param capacidade_inicial Capacidade inicial da fila.
  * @return Ponteiro para a fila criada, ou NULL em caso de falha.
  */
-Fila fila_cria(int capacidade_inicial);
+Fila fila_cria();
 
 /**
  * Libera toda a memória ocupada pela fila.

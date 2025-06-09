@@ -24,4 +24,11 @@
  */
 InformacoesAdicionais processaQry(void *parametros, SmuTreap arvore);
 
+/**
+ * @brief Libera a memória alocada para uma estrutura InformacoesAdicionais.
+ * @param infos O ponteiro para a estrutura a ser liberada.
+ */
+void destruirInformacoesAdicionais(InformacoesAdicionais infos);
+
 #endif 
+

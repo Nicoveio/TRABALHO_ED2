@@ -79,22 +79,6 @@ Node insertSmuT(SmuTreap t, double x, double y, Info i, DescritorTipoInfo d,
 
 NodeST* insertSmuTAux(SmuTreap t, NodeST *atual, double x, double y, double epsilon, Info i, DescritorTipoInfo d, 
 	FCalculaBoundingBox fCalcBb){
-    
-     // DEBUG para y=164.67 /
-
-    /*if (fabs(y - 164.67) < 0.1) {
-        printf("=== insertSmuTAux: x=%.2f, y=%.2f, atual=%p ===\n", x, y, (void*)atual);
-        if (atual != NULL) {
-            printf("    atual->x=%.2f, atual->y=%.2f\n", atual->x, atual->y);
-            
-            // VERIFICAR A CONDIÇÃO DO EPSILON:
-            if (fabs(x - atual->x) < epsilon && fabs(y - atual->y) < epsilon) {
-                printf("    *** PAROU AQUI - COORDENADAS CONSIDERADAS IGUAIS ***\n");
-                printf("    diff_x=%.15f, diff_y=%.15f, epsilon=%.15f\n", 
-                       fabs(x - atual->x), fabs(y - atual->y), epsilon);
-            }
-        }
-    }*/
 
 	if(atual==NULL){
     
@@ -230,10 +214,7 @@ Node getNodeSmuTAux(NodeST*raiz, SmuTreapImp*t, double x, double y){
         if (raiz->hits == t->hitCount) {
         promoteNodeSmuT((SmuTreap)t, (Node)raiz, t->promotionRate);
         
-        }
-
-        
-          
+        }  
 
         return (Node)raiz;
     }
@@ -300,12 +281,6 @@ NodeST* promoteNodeSmuTAux(NodeST* raiz, NodeST* n, double epsilon, double promo
 
 
 void removeNoSmuT(SmuTreap t, Node n){
-    if(t ){
-        printf("existe arvore\n");
-    } else printf("nao existe na remoção\n");
-
-    if(n)printf("existe nó");
-    else printf("nao existe nó na remoção");
     SmuTreapImp*arvore = (SmuTreapImp*)t;
     arvore->raiz = removeNoSmuTAux(arvore->raiz, (NodeST*)n, arvore->epsilon);
 }
@@ -337,44 +312,6 @@ NodeST* removeNoSmuTAux(NodeST*raiz, NodeST*no, double epsilon){
 
 }
 
-/*NodeST* removeNoSmuTAux(NodeST* raiz, NodeST* no, double epsilon) {
-    if (raiz == NULL) return NULL;
-
-    printf("Visitando nó: (x=%.2f, y=%.2f), tentando remover: (x=%.2f, y=%.2f)\n",
-           raiz->x, raiz->y, no->x, no->y);
-
-    if (fabs(raiz->x - no->x) < epsilon && fabs(raiz->y - no->y) < epsilon) {
-        printf("Nó encontrado! (x=%.2f, y=%.2f)\n", raiz->x, raiz->y);
-
-        if (raiz->esq == NULL && raiz->dir == NULL) {
-            printf("Nó é folha, removendo diretamente\n");
-            free(raiz->bb);
-            free(raiz);
-            return NULL;
-        } else if (raiz->esq != NULL &&
-                  (raiz->dir == NULL || raiz->esq->prioridade > raiz->dir->prioridade)) {
-            printf("Rotacionando à direita para remover\n");
-            raiz = rotateRight(raiz);
-            raiz->dir = removeNoSmuTAux(raiz->dir, no, epsilon);
-        } else {
-            printf("Rotacionando à esquerda para remover\n");
-            raiz = rotateLeft(raiz);
-            raiz->esq = removeNoSmuTAux(raiz->esq, no, epsilon);
-        }
-    } else if (no->x < raiz->x - epsilon ||
-              (fabs(no->x - raiz->x) < epsilon && no->y < raiz->y - epsilon)) {
-        printf("Indo para a subárvore esquerda\n");
-        raiz->esq = removeNoSmuTAux(raiz->esq, no, epsilon);
-    } else {
-        printf("Indo para a subárvore direita\n");
-        raiz->dir = removeNoSmuTAux(raiz->dir, no, epsilon);
-    }
-
-    printf("Atualizando bounding box do nó (x=%.2f, y=%.2f)\n", raiz->x, raiz->y);
-    atualizaBoundingBox(raiz);
-    return raiz;
-}
-*/
 
 Info getInfoSmuT(SmuTreap t, Node n){
     SmuTreapImp* arvore = (SmuTreapImp*)t;
@@ -464,6 +401,8 @@ bool buscaInfosDentro(NodeST* no, SmuTreap t, double x1, double y1, double x2, d
 }
 
 
+
+
 bool getInfosAtingidoPontoSmuT(SmuTreap t, double x, double y, FpontoInternoAInfo f, Lista L) {
     if (t == NULL || L == NULL) return false;
 
@@ -540,11 +479,6 @@ void visitaLarguraSmuT(SmuTreap t, FvisitaNo f, void *aux) {
     fila_libera(fila);
 }
 
-typedef struct {
-    double x;
-    double y;
-} BuscaParams;
-
 
  static Node procuraNoSmuTAux(NodeST* no, FsearchNo f, void* aux) {
 
@@ -585,12 +519,51 @@ double getEpsilonSmuT(SmuTreap t) {
 }
 
 
+// Em smutreap.c
+
+// Em smutreap.c
+
 void printDotAux(FILE* fp, NodeST* no) {
     if (!no) return;
 
-    fprintf(fp, "  \"%p\" [label=\"(%.2f, %.2f)\\nHits: %d\\nPrio: %.2d\"];\n",
-            (void*)no, no->x, no->y, no->hits, no->prioridade);
+    // --- NOVA LÓGICA DE SELEÇÃO DE COR ---
+    const char* cor_do_no;
+    const char* nome_tipo;
 
+    // Acessa o descritor do tipo da forma dentro do nó
+    switch (no->descritor) {
+        case 1:
+            cor_do_no = "firebrick"; // Vermelho
+            nome_tipo = "Circ";
+            break;
+        case 2:
+            cor_do_no = "royalblue"; // Azul
+            nome_tipo = "Ret";
+            break;
+        case 3:
+            cor_do_no = "forestgreen"; // Verde
+            nome_tipo = "Linha";
+            break;
+        case 4:
+            cor_do_no = "purple"; // Roxo
+            nome_tipo = "Txt";
+            break;
+        default:
+            cor_do_no = "gray"; // Cor padrão
+            nome_tipo = "???";
+            break;
+    }
+    // --- FIM DA LÓGICA DE COR ---
+
+    // Imprime a definição do nó com o novo label (sem ID) e a nova cor.
+    fprintf(fp, "  \"%p\" [label=\"{Tipo: %s | Ancora: (%.1f, %.1f)} | {Hits: %d | Prio: %d}\", fillcolor=\"%s\"];\n",
+            (void*)no,
+            nome_tipo,
+            no->x, no->y, 
+            no->hits, no->prioridade,
+            cor_do_no);
+
+    // O resto da função continua igual
     if (no->esq) {
         fprintf(fp, "  \"%p\" -> \"%p\" [label=\"esq\"];\n", (void*)no, (void*)no->esq);
         printDotAux(fp, no->esq);
@@ -601,7 +574,6 @@ void printDotAux(FILE* fp, NodeST* no) {
     }
 }
 
-
 bool printDotSmuTreap(SmuTreap t, char *fn) {
     if (!t || !fn) return false;
 
@@ -611,7 +583,7 @@ bool printDotSmuTreap(SmuTreap t, char *fn) {
     SmuTreapImp *arvore = (SmuTreapImp *)t;
 
     fprintf(fp, "digraph SmuTreap {\n");
-    fprintf(fp, "  node [shape=record, style=filled, fillcolor=lightblue];\n");
+    fprintf(fp, "  node [shape=record, style=filled, fontcolor=white];\n");
 
     if (arvore->raiz) {
         printDotAux(fp, arvore->raiz);

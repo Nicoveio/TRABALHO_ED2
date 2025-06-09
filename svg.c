@@ -95,9 +95,7 @@ typedef struct{
 
 // ======================= FUNÇÕES AUXILIARES PRO SVG ATÉ O MOMENTO / TESTE=======================
 
-/**
- * Cria um novo contexto SVG interno
- */
+
 static ContextoSVGInterno* criarContextoSVG(FILE *arquivo, double largura, double altura, InformacoesAdicionais infos) {
     ContextoSVGInterno *contexto = malloc(sizeof(ContextoSVGInterno));
     if (!contexto) return NULL;
@@ -109,13 +107,6 @@ static ContextoSVGInterno* criarContextoSVG(FILE *arquivo, double largura, doubl
     contexto->info_adicional = infos;
     
     return contexto;
-}
-
-/**
- * Verifica se um nó deve ser destacado/ iria usar pra destacar os retangulos, spy etc
- */
-static bool deveDestacar(ContextoSVGInterno *contexto, Node no) {
-    return false;
 }
 
 static void calcularDimensoesCallback(SmuTreap t, Node n, Info i, double x, double y, void *aux) {
@@ -280,11 +271,6 @@ static double getRaioEquivalente(Info info_forma) {
             Circle* c = (Circle*)f->forma;
             return c->r;
         }
-        case RETANGULO: {
-          
-            Rect* r = (Rect*)f->forma;
-            return (r->w + r->h) / 4.0;
-        }
         default: {
            
             return 5.0;
@@ -297,26 +283,24 @@ void desenharInfosAdicionaisSVG(ContextoSVGInterno *ctx) {
     if(ctx->info_adicional==NULL)return;
     InformacoesAdicionaisImp * infos = (InformacoesAdicionaisImp*)ctx->info_adicional;
 
-    // 1. Pontos "x" vermelhos (formas destruídas)
     int contador_ancoras_desenhadas = 0;
-    // ...
 
-    // 1. Pontos "x" vermelhos (formas destruídas) - AGORA CENTRALIZADO
+
+    // 1. Pontos "x" vermelhos (formas destruídas) - CENTRALIZEI
     if (infos->pontos_x_vermelhos) {
         Iterador it = lista_iterador(infos->pontos_x_vermelhos);
         while (iterador_tem_proximo(it)) {
             Coord *p = (Coord*) iterador_proximo(it);
             double y_svg = altura_canvas - p->y;
             
-            // Adicionados text-anchor e dominant-baseline para centralização perfeita.
-            // Aumentei um pouco o tamanho e o peso da fonte para melhor visibilidade.
-            fprintf(arq, "  <text x=\"%.2f\" y=\"%.2f\" font-size=\"14\" font-weight=\"bold\" fill=\"firebrick\" text-anchor=\"middle\" fill-opacity=\"1.0\" dominant-baseline=\"central\">x</text>\n",
+            // Adicionados text-anchor e dominant-baseline para centralização mais estável.
+            fprintf(arq, "  <text x=\"%.2f\" y=\"%.2f\" font-size=\"12\" font-weight=\"bold\" fill=\"firebrick\" text-anchor=\"middle\" fill-opacity=\"1.0\" dominant-baseline=\"central\">x</text>\n",
                     p->x, y_svg);
         }
         iterador_destroi(it); // Lembre-se de destruir o iterador
     }
 
-    // 2. Pontos "#" vermelhos (local da explosão) - AGORA CENTRALIZADO
+    // 2. Pontos "#" vermelhos (local da explosão) - CENTRALIZEI
     if (infos->pontos_hashtag_vermelhos) {
         Iterador it = lista_iterador(infos->pontos_hashtag_vermelhos);
         while (iterador_tem_proximo(it)) {
@@ -324,13 +308,11 @@ void desenharInfosAdicionaisSVG(ContextoSVGInterno *ctx) {
             double y_svg = altura_canvas - p->y;
 
             // Centralizado e com estilo diferente (maior e azul escuro) para diferenciar da destruição.
-            fprintf(arq, "  <text x=\"%.2f\" y=\"%.2f\" font-size=\"16\" font-weight=\"bold\" fill=\"darkblue\" text-anchor=\"middle\" fill-opacity=\"0,4\" dominant-baseline=\"central\">#</text>\n",
+            fprintf(arq, "  <text x=\"%.2f\" y=\"%.2f\" font-size=\"14\" font-weight=\"bold\" fill=\"darkblue\" text-anchor=\"middle\" fill-opacity=\"0,4\" dominant-baseline=\"central\">#</text>\n",
                     p->x, y_svg);
         }
         iterador_destroi(it); // Lembre-se de destruir o iterador
     }
-
-// ...
 
     // 3. Retângulos de seleção
     if (infos->retangulos_selecao) {
@@ -340,7 +322,7 @@ void desenharInfosAdicionaisSVG(ContextoSVGInterno *ctx) {
             double rect_y_svg = altura_canvas - (bb->y + bb->h);
             fprintf(arq, "  <rect x=\"%.2f\" y=\"%.2f\" width=\"%.2f\" height=\"%.2f\" ",
                     bb->x, rect_y_svg, bb->w, bb->h);
-            fprintf(arq, "stroke=\"red\" fill=\"none\" stroke-dasharray=\"4 2\" stroke-opacity = \"0.6\" />\n");
+            fprintf(arq, "stroke=\"red\" fill=\"none\" stroke-dasharray=\"4 2\" stroke-opacity = \"0.8\" />\n");
         }
     }
 
@@ -388,21 +370,13 @@ void desenharInfosAdicionaisSVG(ContextoSVGInterno *ctx) {
       
             double y_svg = altura_canvas - anchor_y;
 
-            fprintf(arq, "  \n", formaGetId(info_forma));
+            fprintf(arq, "  \n");
             fprintf(arq, "  <circle cx=\"%.2f\" cy=\"%.2f\" r=\"%.2f\" ", anchor_x, y_svg, raio_destaque);
             fprintf(arq, "fill=\"none\" stroke=\"red\" stroke-width=\"1\" />\n");
         }
         iterador_destroi(it);
     }
 
-        // =======================================================
-    // ======== BLOCO DE DEPURAÇÃO DE CONTAGEM (SVG) =========
-    // =======================================================
-    // Imprime o resultado da contagem no terminal para comparação.
-    printf("\n[RELATÓRIO DE DEPURAÇÃO - svg.c]\n");
-    printf("- Total de âncoras (círculos vermelhos) efetivamente desenhadas: %d\n", contador_ancoras_desenhadas);
-    fflush(stdout); // Força a impressão imediata no terminal
-    // =======================================================
 }
 
 
@@ -444,10 +418,10 @@ static void escreverFormaCallback(SmuTreap t, Node n, Info i, double x, double y
             double forma_x, forma_y, forma_w, forma_h;
             formaCalculaBoundingBox(tipo, i, &forma_x, &forma_y, &forma_w, &forma_h);
             // Corrige Y do retângulo para o sistema SVG:
-            double rect_y_svg = contexto->altura_canvas - (forma_y + forma_h); // porque y em SVG é topo do retângulo
+            double rect_y_svg = contexto->altura_canvas - (forma_y + forma_h); // deu certo essa orientação
             fprintf(arquivo, "  <rect x=\"%.2f\" y=\"%.2f\" width=\"%.2f\" height=\"%.2f\" ",
                     forma_x, rect_y_svg, forma_w, forma_h);
-            fprintf(arquivo, "fill=\"%s\" stroke=\"%s\" fill-opacity = \"0.7\" stroke-opacity=\"0.9\" class=\"%s\" stroke-width=\"%.2f\" />\n",
+            fprintf(arquivo, "fill=\"%s\" stroke=\"%s\" fill-opacity = \"0.7\" stroke-opacity=\"0.5\" class=\"%s\" stroke-width=\"%.2f\" />\n",
                     corp_final, corb_final, classe_css, r->largura_borda);
             break;
         }
@@ -516,12 +490,12 @@ void calcularDimensoesCanvas(SmuTreap arvore, double *largura, double *altura) {
     
     if (calc.primeira_forma) {
 
-        *largura = 800.0;
-        *altura = 600.0;
+        *largura = 1600.0;
+        *altura = 1200.0;
     } else {
         // margemzinha
-        *largura = (calc.max_x - calc.min_x) + (2 * MARGEM_CANVAS);
-        *altura = (calc.max_y - calc.min_y) + (2 * MARGEM_CANVAS);
+        *largura = (calc.max_x - calc.min_x) + (4 * MARGEM_CANVAS);
+        *altura = (calc.max_y - calc.min_y) + (4 * MARGEM_CANVAS);
         
         // dimensao  minima pra visualizar
         if (*largura < 400.0) *largura = 400.0;
@@ -566,7 +540,7 @@ bool gerarSVG(SmuTreap arvore, InformacoesAdicionais infos, const char *caminho)
     printf("Dimensões: %.0fx%.0f pixels\n", largura, altura);
     printf("Formas processadas: %d\n", contexto->contador_formas);
     
-    // Liberar contexto
+   
     free(contexto);
     
     return true;

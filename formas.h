@@ -1,201 +1,203 @@
 #ifndef FORMAS_H
 #define FORMAS_H
 
-// Inclusão do módulo SmuTreap, onde estão definidas as estruturas Node, Info, etc.
-#include "smutreap.h"  
-
+#include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>  // Necessário para o tipo bool
+#include "smutreap.h" 
 
-// =====================
-// Constantes e Tipos
-// =====================
+
+//-------------------------------------
+// Constantes e Tipos de Dados Públicos
+//-------------------------------------
 
 // Identificadores para os tipos de formas geométricas
-#define CIRCULO 1
+#define CIRCULO   1
 #define RETANGULO 2
-#define LINHA 3
-#define TEXTO 4
+#define LINHA     3
+#define TEXTO     4
 
-// Tipo opaco Forma, representa uma forma geométrica genérica.
-// Internamente, encapsula uma estrutura específica (círculo, retângulo, etc.).
+/**
+ * @brief Tipo opaco para uma forma geométrica genérica.
+ * Internamente, é um ponteiro para uma struct 'forma' que encapsula
+ * o tipo e um ponteiro para a struct da forma específica (Circle, Rect, etc.).
+ */
 typedef void* Forma;
 
-// ===========================================
-// Funções de criação e destruição de formas
-// ===========================================
+
+//-------------------------------------------------
+// Funções de Ciclo de Vida (Criação e Destruição)
+//-------------------------------------------------
 
 /**
- * Cria uma forma genérica do tipo especificado (CIRCULO, RETANGULO, LINHA, TEXTO).
- * Aloca o wrapper Forma e a estrutura interna correspondente.
- * 
- * @param tipo  Descritor do tipo da forma (CIRCULO, RETANGULO, etc.).
- * @return      Ponteiro para a Forma criada.
+ * @brief Cria uma instância de uma forma genérica com base no tipo.
+ * @param tipo O tipo da forma a ser criada (ex: CIRCULO, RETANGULO).
+ * @return Um ponteiro para a nova forma (Info) ou NULL em caso de erro.
  */
-Forma criaForma(DescritorTipoInfo tipo);
+Info criaForma(DescritorTipoInfo tipo);
 
 /**
- * Libera a memória associada a uma forma, incluindo a estrutura interna.
- * 
- * @param f     Ponteiro para a Forma a ser destruída.
+ * @brief Libera toda a memória associada a uma forma.
+ * @param i Ponteiro para a forma (Info) a ser destruída.
  */
-void liberaForma(Forma f);
+void liberaForma(Info i);
 
-// ===========================
-// Funções set (preenchimento)
-// ===========================
 
-/**
- * Inicializa os dados de um círculo na forma especificada.
- */
-void setCircle(Forma f, int id, double x, double y, double r, const char *corb, const char *corp);
+//-------------------------------------------------------
+// Funções de Configuração de Atributos (Setters)
+//-------------------------------------------------------
 
 /**
- * Inicializa os dados de um retângulo na forma especificada.
+ * @brief Configura os atributos de um Círculo.
  */
-void setRect(Forma f, int id, double x, double y, double w, double h, const char *corb, const char *corp);
+void setCircle(Info i, int id, double x, double y, double r, const char* corb, const char* corp);
 
 /**
- * Inicializa os dados de uma linha na forma especificada.
+ * @brief Configura os atributos de um Retângulo.
  */
-void setLine(Forma f, int id, double x1, double y1, double x2, double y2, const char *cor);
+void setRect(Info i, int id, double x, double y, double w, double h, const char* corb, const char* corp);
 
 /**
- * Inicializa os dados de um texto na forma especificada.
+ * @brief Configura os atributos de uma Linha.
  */
-void setText(Forma f, int id, double x, double y, const char* corb, const char* corp, char a, const char* txto,
+void setLine(Info i, int id, double x1, double y1, double x2, double y2, const char* cor);
+
+/**
+ * @brief Configura os atributos de um Texto.
+ */
+void setText(Info i, int id, double x, double y, const char* corb, const char* corp, char a, const char* txto,
              const char* fontFamily, const char* fontWeight, int fontSize);
-// ==========================================================
-// Funções de interação com SmuTreap usando Info (void*)
-// ==========================================================
 
 /**
- * Verifica se a forma está completamente contida dentro do retângulo definido
- * pelos pontos (x1, y1) e (x2, y2).
- */
-bool formaDentroDeRegiao(SmuTreap t, Node n, Info i, double x1, double y1, double x2, double y2);
-
-/**
- * Verifica se o ponto (x, y) está dentro da forma representada por Info.
- */
-bool formaPontoInternoAInfo(SmuTreap t, Node n, Info i, double x, double y);
-
-/**
- * Visita um nó da árvore que contém a forma, com base em sua posição.
- * Permite execução de operações personalizadas com auxílio do ponteiro aux.
- */
-void formaVisitaNo(SmuTreap t, Node n, Info i, double x, double y, void *aux);
-
-/**
- * Calcula a bounding box (retângulo mínimo que envolve a forma).
- * 
- * @param tp    Descritor do tipo da forma.
- * @param i     Ponteiro para a forma (Info).
- * @param x     Saída: coordenada x da âncora da bounding box.
- * @param y     Saída: coordenada y da âncora da bounding box.
- * @param w     Saída: largura da bounding box.
- * @param h     Saída: altura da bounding box.
- */
-void formaCalculaBoundingBox(DescritorTipoInfo tp, Info i, double *x, double *y, double *w, double *h);
-
-/**
- * Exibe os dados internos da forma no terminal. Útil para depuração.
- */
-void printForma(Forma f);
-
-// ============================
-// Funções adicionais utilitárias
-// ============================
-
-/**
- * Verifica se a âncora da forma coincide com o ponto (x, y), com margem epsilon.
- * 
- * @param i     Ponteiro para a forma (Info).
- * @param x     Coordenada x a comparar.
- * @param y     Coordenada y a comparar.
- * @return      true se as âncoras forem praticamente iguais, false caso contrário.
- */
-bool formaAncoraIgual(Info i, double x, double y);
-
-/**
- * Obtém o identificador da forma.
- * 
- * @param i     Ponteiro para a forma (Info).
- * @return      ID da forma.
- */
-int formaGetId(Info i);
-
-/**
- * Move a âncora da forma para as coordenadas (x, y).
- * 
- * @param i     Ponteiro para a forma (Info).
- */
-void formaMovePara(Info i, double x, double y);
-
-/**
- * Cria uma cópia independente da forma (clonagem profunda).
- * 
- * @param i     Ponteiro para a forma a ser clonada (Info).
- * @return      Forma clonada (como Forma, pode ser convertida para Info).
- */
-Forma formaClona(Info i);
-
-/**
- * Inverte as cores da forma (borda <-> preenchimento).
- * 
- * @param i     Ponteiro para a forma (Info).
- */
-void formaInverteCores(Info i);
-
-/**
- * Define as cores de borda e preenchimento da forma.
- * 
- * @param i     Ponteiro para a forma (Info).
- * @param corb  Nova cor da borda.
- * @param corp  Nova cor do preenchimento.
+ * @brief Define as cores de borda e preenchimento de uma forma.
+ * @param i Ponteiro para a forma (Info).
+ * @param corb Nova cor da borda.
+ * @param corp Nova cor do preenchimento.
  */
 void formaSetCores(Info i, const char* corb, const char* corp);
 
 /**
- * Exibe um resumo da forma no terminal: tipo, ID, posição, cores, etc.
- * 
- * @param i     Ponteiro para a forma (Info).
+ * @brief Define a largura da borda de uma forma.
+ * @param i Ponteiro para a forma (Info).
+ * @param nova_largura A nova espessura da borda.
+ */
+void formaSetLarguraBorda(Info i, double nova_largura);
+
+/**
+ * @brief Inverte as cores de borda e preenchimento de uma forma.
+ * @param i Ponteiro para a forma (Info).
+ */
+void formaInverteCores(Info i);
+
+/**
+ * @brief Move a âncora de uma forma para uma nova coordenada.
+ * @param i Ponteiro para a forma (Info).
+ * @param x Nova coordenada x da âncora.
+ * @param y Nova coordenada y da âncora.
+ */
+void formaMovePara(Info i, double x, double y);
+
+
+//--------------------------------------------------
+// Funções de Consulta de Atributos (Getters)
+//--------------------------------------------------
+
+/**
+ * @brief Obtém o tipo de uma forma.
+ * @param i Ponteiro para a forma (Info).
+ * @return O descritor do tipo da forma (CIRCULO, RETANGULO, etc.).
+ */
+DescritorTipoInfo formaGetTipo(Info i);
+
+/**
+ * @brief Obtém o ID de uma forma.
+ * @param i Ponteiro para a forma (Info).
+ * @return O ID numérico da forma.
+ */
+int formaGetId(Info i);
+
+/**
+ * @brief Obtém as coordenadas da âncora de uma forma.
+ * @param i Ponteiro para a forma (Info).
+ * @param x Ponteiro de saída para a coordenada x da âncora.
+ * @param y Ponteiro de saída para a coordenada y da âncora.
+ */
+void GetXY(double *x, double *y, Forma f);
+
+
+//----------------------------------------
+// Funções de Geometria e Colisão
+//----------------------------------------
+
+/**
+ * @brief Calcula a "área" de uma forma para o comando 'disp'.
+ * @param i Ponteiro para a forma (Info).
+ * @return O valor da área calculada conforme as regras da especificação.
+ */
+double formaGetArea(Info i);
+
+/**
+ * @brief Calcula o retângulo mínimo que envolve a forma (bounding box).
+ * @param tipo Descritor do tipo da forma.
+ * @param i Ponteiro para a forma (Info).
+ * @param x Saída: coordenada x do canto inferior esquerdo do bounding box.
+ * @param y Saída: coordenada y do canto inferior esquerdo do bounding box.
+ * @param w Saída: largura do bounding box.
+ * @param h Saída: altura do bounding box.
+ */
+void formaCalculaBoundingBox(DescritorTipoInfo tipo, Info i, double *x, double *y, double *w, double *h);
+
+/**
+ * @brief Verifica se uma forma está inteiramente contida em uma região retangular.
+ * Usa uma tolerância geométrica interna para lidar com imprecisões.
+ * @param i Ponteiro para a forma (Info).
+ * @param x1, y1, x2, y2 Coordenadas que definem a região de busca.
+ * @return true se a forma está contida, false caso contrário.
+ */
+bool formaDentroDeRegiao(SmuTreap t, Node n, Info i, double x1, double y1, double x2, double y2);
+
+/**
+ * @brief Verifica se um ponto (x,y) está contido na geometria de uma forma.
+ * @param i Ponteiro para a forma (Info).
+ * @param x Coordenada x do ponto.
+ * @param y Coordenada y do ponto.
+ * @return true se o ponto é interno à forma, false caso contrário.
+ */
+bool formaPontoInternoAInfo(SmuTreap t, Node n, Info i, double x, double y);
+
+/**
+ * @brief Obtém as coordenadas das duas extremidades de uma forma do tipo Linha.
+ * * @param i Ponteiro para a forma (Info) do tipo Linha.
+ * @param x1 Ponteiro de saída para a coordenada x do primeiro ponto.
+ * @param y1 Ponteiro de saída para a coordenada y do primeiro ponto.
+ * @param x2 Ponteiro de saída para a coordenada x do segundo ponto.
+ * @param y2 Ponteiro de saída para a coordenada y do segundo ponto.
+ */
+void linhaGetPontos(Info i, double *x1, double *y1, double *x2, double *y2);
+
+
+//-------------------------------------------
+// Funções de Utilitários e Relatórios
+//-------------------------------------------
+
+/**
+ * @brief Cria uma cópia profunda (independente) de uma forma.
+ * @param i Ponteiro para a forma (Info) a ser clonada.
+ * @return Um ponteiro para a nova forma clonada (Info).
+ */
+Info formaClona(Info i);
+
+/**
+ * @brief Imprime um resumo formatado dos dados de uma forma em um arquivo/stream.
+ * @param stream O stream de saída (ex: stdout para o terminal ou um FILE* para um arquivo).
+ * @param i Ponteiro para a forma (Info) a ser impressa.
+ */
+void formaFprintfResumo(FILE* stream, Info i);
+
+/**
+ * @brief Imprime um resumo formatado dos dados de uma forma no terminal (stdout).
+ * @param i Ponteiro para a forma (Info) a ser impressa.
  */
 void formaPrintResumo(Info i);
 
-// Adicione estas declarações ao seu arquivo formas.h
 
-// Função para obter o tipo de uma forma
-DescritorTipoInfo formaGetTipo(Info i);
-
-// Função para obter o raio de um círculo
-double circuloGetRaio(Info i);
-
-// Função para obter dimensões de um retângulo
-double retanguloGetLargura(Info i);
-double retanguloGetAltura(Info i);
-
-// Função para obter os pontos de uma linha
-void linhaGetPontos(Info i, double *x1, double *y1, double *x2, double *y2);
-
-// Funções para obter conteúdo de texto
-char* textoGetConteudo(Info i);
-int textoGetConteudoCopia(Info i, char *buffer, int tamanho_buffer);
-void GetXY(double *x, double *y, Forma f);
-int getFormaId(Forma f);
-int getDescritorForma(Forma f);
-// ...
-void formaPrintResumo(Info i);
-
-// Adicione esta declaração
-void formaFprintfResumo(FILE* stream, Info i);
-
-
-void formaSetLarguraBorda(Info i, double nova_largura);
-
-// Em formas.h
-double formaGetArea(Info i);
-
-
-#endif // FORMAS_H
+#endif 

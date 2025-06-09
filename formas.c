@@ -243,20 +243,17 @@ void formaCalculaBoundingBox(DescritorTipoInfo tipo, Info i, double *x, double *
 }
 
 
-
-// Nova assinatura, agora aceitando o parâmetro 'tolerancia'
 bool boundingBoxDentroDeRegiao(double bx, double by, double bw, double bh, 
                                double x1, double y1, double x2, double y2){
 
-   const double TOLERANCIA_GEOMETRICA = 0.01;
+   const double TOLERANCIA_GEOMETRICA = 0.1;
 
-    // Normalização das coordenadas da região (seu código já faz isso, está ótimo)
+
     double rx1 = x1 < x2 ? x1 : x2;
     double rx2 = x1 > x2 ? x1 : x2;
     double ry1 = y1 < y2 ? y1 : y2;
     double ry2 = y1 > y2 ? y1 : y2;
 
-    // A verificação, agora usando a nossa tolerância geométrica local e previsível.
     return (bx >= rx1 - TOLERANCIA_GEOMETRICA) &&
            (by >= ry1 - TOLERANCIA_GEOMETRICA) &&
            ((bx + bw) <= rx2 + TOLERANCIA_GEOMETRICA) &&
@@ -277,7 +274,7 @@ static bool retanguloDentroDeRegiao(Rect *r, double x1, double y1, double x2, do
 }
 
 static bool linhaDentroDeRegiao(Line *l, double x1, double y1, double x2, double y2, double tolerancia) {
-    // Para uma linha, verificamos se ambos os pontos estão dentro da região com tolerância.
+  
     return (l->x1 >= x1 - tolerancia) && (l->x1 <= x2 + tolerancia) &&
            (l->y1 >= y1 - tolerancia) && (l->y1 <= y2 + tolerancia) &&
            (l->x2 >= x1 - tolerancia) && (l->x2 <= x2 + tolerancia) &&
@@ -285,9 +282,8 @@ static bool linhaDentroDeRegiao(Line *l, double x1, double y1, double x2, double
 }
 
 static bool textoDentroDeRegiao(Text *t, double x1, double y1, double x2, double y2, double tolerancia) {
-    // Sua lógica para calcular o bounding box do texto é uma boa aproximação.
-    // Vamos usá-la aqui.
-    double largura_char = 8.0; // Valores aproximados
+
+    double largura_char = 8.0; 
     double altura_char = 12.0;
     double largura_total = strlen(t->txto) * largura_char;
     double bx;
@@ -299,7 +295,7 @@ static bool textoDentroDeRegiao(Text *t, double x1, double y1, double x2, double
         default:  bx = t->x;
     }
 
-    double by = t->y - altura_char; // Y da âncora geralmente é a base do texto.
+    double by = t->y - altura_char; 
 
     return (bx >= x1 - tolerancia) && (bx + largura_total <= x2 + tolerancia) &&
            (by >= y1 - tolerancia) && (by + altura_char <= y2 + tolerancia);
@@ -341,6 +337,21 @@ void printForma(Forma f) {
     }
 }
 
+static bool pontoEstaNaLinha(Line* l, double px, double py) {
+    // distância do ponto A ao ponto B (comprimento total da linha)
+    double dist_ab = sqrt(pow(l->x2 - l->x1, 2) + pow(l->y2 - l->y1, 2));
+
+    // distância do ponto A ao ponto P (o ponto de teste)
+    double dist_ap = sqrt(pow(px - l->x1, 2) + pow(py - l->y1, 2));
+
+    // distância do ponto P ao ponto B
+    double dist_pb = sqrt(pow(l->x2 - px, 2) + pow(l->y2 - py, 2));
+    
+    // se a soma das partes for igual ao todo (com uma pequena tolerância), o ponto é 'colinear'...
+    return fabs((dist_ap + dist_pb) - dist_ab) < 1e-6;
+}
+
+
 bool formaPontoInternoAInfo(SmuTreap t, Node n, Info i, double x, double y) {
     if (!i) return false;
     forma *f = (forma*)i;
@@ -356,45 +367,18 @@ bool formaPontoInternoAInfo(SmuTreap t, Node n, Info i, double x, double y) {
             Rect *r = (Rect*)f->forma;
             return x >= r->x && x <= r->x + r->w && y >= r->y && y <= r->y + r->h;
         }
-        case LINHA:
-            return false; 
+        case LINHA: {
+            return pontoEstaNaLinha((Line*)f->forma, x, y);
+        }
         case TEXTO: {
-            Text *t = (Text*)f->forma;
-            return fabs(t->x - x) < 1e-6 && fabs(t->y - y) < 1e-6;
+           
+            double bx, by, bw, bh;
+            boundingBoxTexto((Text*)f->forma, &bx, &by, &bw, &bh);
+            return x >= bx && x <= bx + bw && y >= by && y <= by + bh;
         }
     }
     return false;
-}
 
-bool formaAncoraIgual(Info i, double x, double y) {
-    if (!i) return false;
-    forma *f = (forma*)i;
-
-    double fx = 0, fy = 0;
-    switch (f->tipo) {
-        case CIRCULO: {
-            Circle *c = (Circle*)f->forma;
-            fx = c->x; fy = c->y;
-            break;
-        }
-        case RETANGULO: {
-            Rect *r = (Rect*)f->forma;
-            fx = r->x; fy = r->y;
-            break;
-        }
-        case LINHA: {
-            Line *l = (Line*)f->forma;
-            fx = l->x1; fy = l->y1;
-            break;
-        }
-        case TEXTO: {
-            Text *t = (Text*)f->forma;
-            fx = t->x; fy = t->y;
-            break;
-        }
-    }
-
-    return fabs(fx - x) < 1e-6 && fabs(fy - y) < 1e-6;
 }
 
 int formaGetId(Info i) {
@@ -622,13 +606,13 @@ int textoGetConteudoCopia(Info i, char *buffer, int tamanho_buffer) {
 }
 
 
-// Coloque esta nova função em formas.c
+
 void formaFprintfResumo(FILE* stream, Info i) {
-    if (!i || !stream) return; // Verifica se o stream e a info são válidos
+    if (!i || !stream) return; 
     
     forma *f = (forma*)i;
 
-    // A lógica do switch é a mesma, apenas trocando printf por fprintf
+ 
     switch (f->tipo) {
         case CIRCULO: {
             Circle *c = (Circle*)f->forma;
@@ -657,115 +641,15 @@ void formaFprintfResumo(FILE* stream, Info i) {
     }
 }
 
-// Opcional, mas recomendado: atualize sua função antiga para reutilizar código
+
 void formaPrintResumo(Info i) {
-    formaFprintfResumo(stdout, i); // Chama a nova função, mandando para o terminal (stdout)
-    printf("\n"); // Adiciona o newline que o fprintf não tem
-}
-
-typedef struct {
-    int modo;           
-    int contador;      
-    FILE *arquivo;      
-    void *dados_busca;  
-} ContextoVisita;
-
-
-void formaVisitaNo(SmuTreap t, Node n, Info i, double x, double y, void *aux) {
-    if (!t || !n || !i) return;
-    
-  
-    if (!aux) {
-        DescritorTipoInfo tipo = getTypeInfoSrbT(t, n);
-        int id = formaGetId(i);
-        
-        const char* nome_tipo;
-        switch(tipo) {
-            case CIRCULO: nome_tipo = "CÍRCULO"; break;
-            case RETANGULO: nome_tipo = "RETÂNGULO"; break;
-            case LINHA: nome_tipo = "LINHA"; break;
-            case TEXTO: nome_tipo = "TEXTO"; break;
-            default: nome_tipo = "DESCONHECIDO"; break;
-        }
-        
-        printf("  -> %s (ID=%d) em (%.2f, %.2f)\n", nome_tipo, id, x, y);
-        return;
-    }
-    
-  
-    ContextoVisita *ctx = (ContextoVisita*)aux;
-    
-    switch(ctx->modo) {
-        case 0: // Debug detalhado
-            {
-                DescritorTipoInfo tipo = getTypeInfoSrbT(t, n);
-                int id = formaGetId(i);
-                double bb_x, bb_y, bb_w, bb_h;
-                getBoundingBoxSmuT(t, n, &bb_x, &bb_y, &bb_w, &bb_h);
-                
-                printf("  [%d] Tipo=%d ID=%d Âncora=(%.2f,%.2f) BB=[%.1f,%.1f,%.1fx%.1f]\n",
-                       ++ctx->contador, tipo, id, x, y, bb_x, bb_y, bb_w, bb_h);
-            }
-            break;
-            
-        case 1: // Apenas contagem
-            ctx->contador++;
-            break;
-            
-        case 2: // Escrever em arquivo
-            if (ctx->arquivo) {
-                DescritorTipoInfo tipo = getTypeInfoSrbT(t, n);
-                int id = formaGetId(i);
-                fprintf(ctx->arquivo, "%d,%d,%.2f,%.2f\n", tipo, id, x, y);
-                ctx->contador++;
-            }
-            break;
-            
-        case 3: // Busca específica (implementar conforme necessidade)
-            // Usar ctx->dados_busca para critérios específicos
-            ctx->contador++;
-            break;
-            
-        default:
-            // Se aux for apenas um contador simples (int*)
-            if (sizeof(int*) == sizeof(void*)) {
-                int *contador = (int*)aux;
-                (*contador)++;
-                printf("  [%d] Forma em (%.2f, %.2f)\n", *contador, x, y);
-            }
-            break;
-    }
-}
-
-void percorrerParaDebug(SmuTreap arvore) {
-    printf("=== PERCURSO DEBUG ===\n");
-    visitaProfundidadeSmuT(arvore, formaVisitaNo, NULL);
-}
-
-
-int contarFormas(SmuTreap arvore) {
-    ContextoVisita ctx = {1, 0, NULL, NULL}; // modo=1 (contagem)
-    visitaProfundidadeSmuT(arvore, formaVisitaNo, &ctx);
-    return ctx.contador;
-}
-
-void salvarFormasEmArquivo(SmuTreap arvore, const char *caminho) {
-    FILE *f = fopen(caminho, "w");
-    if (!f) return;
-    
-    fprintf(f, "tipo,id,x,y\n"); // Cabeçalho CSV
-    
-    ContextoVisita ctx = {2, 0, f, NULL}; // modo=2 (arquivo)
-    visitaProfundidadeSmuT(arvore, formaVisitaNo, &ctx);
-    
-    fclose(f);
-    printf("Salvas %d formas em %s\n", ctx.contador, caminho);
+    formaFprintfResumo(stdout, i);
+    printf("\n"); 
 }
 
 
 void GetXY(double *x, double *y, Forma f){
     if(!f){
-        printf("forma vazia");
         exit(1);
     }
     forma *f1 = (forma*)f;
@@ -785,7 +669,7 @@ void GetXY(double *x, double *y, Forma f){
         Text *t = (Text*)f1->forma;
         *x=t->x;
         *y = t->y;
-    }else printf("Não chegou forma.");
+    }else exit(1);
 
 }
 
@@ -815,8 +699,8 @@ void formaSetLarguraBorda(Info i, double nova_largura) {
     switch (f->tipo) {
         case CIRCULO:   ((Circle*)f->forma)->largura_borda = nova_largura; break;
         case RETANGULO: ((Rect*)f->forma)->largura_borda = nova_largura; break;
-        case LINHA:     ((Line*)f->forma)->largura_borda = nova_largura; break; // ADICIONADO
-        case TEXTO:     ((Text*)f->forma)->largura_borda = nova_largura; break; // ADICIONADO
+        case LINHA:     ((Line*)f->forma)->largura_borda = nova_largura; break; 
+        case TEXTO:     ((Text*)f->forma)->largura_borda = nova_largura; break; 
     }
 }
 
@@ -827,21 +711,21 @@ double formaGetArea(Info i) {
     switch (f->tipo) {
         case CIRCULO: {
             Circle* c = (Circle*)f->forma;
-            return M_PI * c->r * c->r; // Área real do círculo
+            return M_PI * c->r * c->r; 
         }
         case RETANGULO: {
             Rect* r = (Rect*)f->forma;
-            return r->w * r->h; // Área real do retângulo
+            return r->w * r->h; 
         }
         case LINHA: {
             Line* l = (Line*)f->forma;
             double dx = l->x2 - l->x1;
             double dy = l->y2 - l->y1;
-            return 10.0 * sqrt(dx*dx + dy*dy); // 10 * comprimento
+            return 10.0 * sqrt(dx*dx + dy*dy); 
         }
         case TEXTO: {
             Text* t = (Text*)f->forma;
-            return 12.0 * strlen(t->txto); // 12 * número de caracteres
+            return 12.0 * strlen(t->txto); 
         }
     }
     return 0.0;
